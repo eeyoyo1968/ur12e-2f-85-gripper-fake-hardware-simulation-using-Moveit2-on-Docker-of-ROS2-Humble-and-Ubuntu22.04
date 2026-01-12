@@ -116,48 +116,22 @@
     <origin xyz="0 0 0" rpy="0 0 0" />
   </xacro:robotiq_gripper>  
 
-  <ros2_control name="RobotiqGripperHardwareInterface" type="system">
-    <hardware>
-      <plugin>mock_components/GenericSystem</plugin>
-      <param name="calculate_dynamics">true</param>
-      <param name="mock_sensor_commands">true</param>
-    </hardware>
-    <joint name="robotiq_85_left_knuckle_joint">
-      <command_interface name="position"/>
-      <state_interface name="position"><param name="initial_value">0.0</param></state_interface>
-      <state_interface name="velocity"/>
-    </joint>
-    
-    <joint name="robotiq_85_right_knuckle_joint">
-      <param name="mimic">robotiq_85_left_knuckle_joint</param>
-      <param name="multiplier">-1.0</param>
-      <state_interface name="position"/>
-    </joint>
-    <joint name="robotiq_85_left_inner_knuckle_joint">
-      <param name="mimic">robotiq_85_left_knuckle_joint</param>
-      <param name="multiplier">1.0</param>
-      <state_interface name="position"/>
-    </joint>
-    <joint name="robotiq_85_right_inner_knuckle_joint">
-      <param name="mimic">robotiq_85_left_knuckle_joint</param>
-      <param name="multiplier">-1.0</param>
-      <state_interface name="position"/>
-    </joint>
-    <joint name="robotiq_85_left_finger_tip_joint">
-      <param name="mimic">robotiq_85_left_knuckle_joint</param>
-      <param name="multiplier">-1.0</param> <state_interface name="position"/>
-    </joint>
-    <joint name="robotiq_85_right_finger_tip_joint">
-      <param name="mimic">robotiq_85_left_knuckle_joint</param>
-      <param name="multiplier">1.0</param>
-      <state_interface name="position"/>
-    </joint>
-  </ros2_control>
+  <xacro:arg name="use_fake_hardware" default="true" />
+  <xacro:arg name="robot_ip" default="192.168.1.100" />
 
-<ros2_control name="URMockHardwareInterface" type="system">
+  <ros2_control name="URHardwareInterface" type="system">
     <hardware>
-      <plugin>mock_components/GenericSystem</plugin>
-      <param name="calculate_dynamics">true</param>
+      <xacro:if value="$(arg use_fake_hardware)">
+        <plugin>mock_components/GenericSystem</plugin>
+        <param name="calculate_dynamics">true</param>
+      </xacro:if>
+      <xacro:unless value="$(arg use_fake_hardware)">
+        <plugin>ur_robot_driver/URPositionHardwareInterface</plugin>
+        <param name="robot_ip">$(arg robot_ip)</param>
+        <param name="script_filename">$(find ur_client_library)/resources/external_control.urscript</param>
+        <param name="output_recipe_filename">$(find ur_robot_driver)/resources/rtde_output_recipe.txt</param>
+        <param name="input_recipe_filename">$(find ur_robot_driver)/resources/rtde_input_recipe.txt</param>
+      </xacro:unless>
     </hardware>
     <joint name="shoulder_pan_joint">
       <command_interface name="position"/>
@@ -188,6 +162,48 @@
       <command_interface name="position"/>
       <state_interface name="position"><param name="initial_value">0.0</param></state_interface>
       <state_interface name="velocity"/>
+    </joint>
+  </ros2_control>
+
+  <ros2_control name="RobotiqGripperHardwareInterface" type="system">
+    <hardware>
+      <xacro:if value="$(arg use_fake_hardware)">
+        <plugin>mock_components/GenericSystem</plugin>
+      </xacro:if>
+      <xacro:unless value="$(arg use_fake_hardware)">
+        <plugin>robotiq_hardware_interface/RobotiqGripperHardwareInterface</plugin>
+        <param name="com_port">/dev/ttyUSB0</param> 
+      </xacro:unless>
+    </hardware>
+    <joint name="robotiq_85_left_knuckle_joint">
+      <command_interface name="position"/>
+      <state_interface name="position"><param name="initial_value">0.0</param></state_interface>
+      <state_interface name="velocity"/>
+    </joint>
+    <joint name="robotiq_85_right_knuckle_joint">
+      <param name="mimic">robotiq_85_left_knuckle_joint</param>
+      <param name="multiplier">-1.0</param>
+      <state_interface name="position"/>
+    </joint>
+    <joint name="robotiq_85_left_inner_knuckle_joint">
+      <param name="mimic">robotiq_85_left_knuckle_joint</param>
+      <param name="multiplier">1.0</param>
+      <state_interface name="position"/>
+    </joint>
+    <joint name="robotiq_85_right_inner_knuckle_joint">
+      <param name="mimic">robotiq_85_left_knuckle_joint</param>
+      <param name="multiplier">-1.0</param>
+      <state_interface name="position"/>
+    </joint>
+    <joint name="robotiq_85_left_finger_tip_joint">
+      <param name="mimic">robotiq_85_left_knuckle_joint</param>
+      <param name="multiplier">-1.0</param>
+      <state_interface name="position"/>
+    </joint>
+    <joint name="robotiq_85_right_finger_tip_joint">
+      <param name="mimic">robotiq_85_left_knuckle_joint</param>
+      <param name="multiplier">1.0</param>
+      <state_interface name="position"/>
     </joint>
   </ros2_control>
 

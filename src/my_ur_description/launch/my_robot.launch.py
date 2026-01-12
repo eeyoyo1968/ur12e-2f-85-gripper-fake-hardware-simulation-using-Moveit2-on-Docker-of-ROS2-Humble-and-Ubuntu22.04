@@ -3,50 +3,69 @@ import yaml
 from launch import LaunchDescription
 from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
-import xacro
-from launch.actions import TimerAction
+from launch.actions import TimerAction, DeclareLaunchArgument
+from launch.substitutions import LaunchConfiguration, Command, FindExecutable, PathJoinSubstitution
+
+import math # Add this import at the top
 
 def load_yaml(package_name, file_path):
     package_path = get_package_share_directory(package_name)
     absolute_path = os.path.join(package_path, file_path)
+    
+    # Define a constructor for the custom '!degrees' tag
+    def degrees_constructor(loader, node):
+        value = loader.construct_scalar(node)
+        return math.radians(float(value))
+
+    # Register the constructor
+    yaml.SafeLoader.add_constructor('!degrees', degrees_constructor)
+
     try:
         with open(absolute_path, 'r') as file:
             return yaml.safe_load(file)
     except EnvironmentError: 
         return None
 
+        
 def generate_launch_description():
     description_pkg = "my_ur_description"
-    
-    # 1. URDF
-    xacro_file = os.path.join(get_package_share_directory(description_pkg), 'urdf', 'ur_system.xacro')
-    
-    # Remove the 'mappings' dictionary entirely
-    robot_description_config = xacro.process_file(xacro_file)
-    robot_description = {'robot_description': robot_description_config.toxml()}
 
-    # 2. SRDF
+    # 1. Declare Launch Arguments
+    use_fake_hardware_arg = DeclareLaunchArgument(
+        "use_fake_hardware", default_value="true"
+    )
+    robot_ip_arg = DeclareLaunchArgument(
+        "robot_ip", default_value="192.168.1.100"
+    )
+
+    use_fake_hardware = LaunchConfiguration("use_fake_hardware")
+    robot_ip = LaunchConfiguration("robot_ip")
+
+    # 2. Process XACRO using Command Substitution (Fixes the TypeError)
+    xacro_file = PathJoinSubstitution([get_package_share_directory(description_pkg), 'urdf', 'ur_system.xacro'])
+    
+    robot_description_content = Command(
+        [
+            PathJoinSubstitution([FindExecutable(name="xacro")]),
+            " ", xacro_file,
+            " ", "use_fake_hardware:=", use_fake_hardware,
+            " ", "robot_ip:=", robot_ip,
+        ]
+    )
+    robot_description = {'robot_description': robot_description_content}
+
+    # 3. Load Other Configs
     srdf_file = os.path.join(get_package_share_directory(description_pkg), 'srdf', 'ur_system.srdf')
     with open(srdf_file, 'r') as f:
         semantic_config = f.read()
     robot_description_semantic = {'robot_description_semantic': semantic_config}
 
-    # 3. Kinematics
     kinematics_yaml = load_yaml(description_pkg, 'config/kinematics.yaml')
-    kinematics_parameters = {'robot_description_kinematics': kinematics_yaml}
-    rviz_kinematics_config = {'robot_description_kinematics': kinematics_yaml}
-    
+    joint_limits_yaml = load_yaml(description_pkg, "config/joint_limits.yaml")
     controllers_yaml = os.path.join(get_package_share_directory(description_pkg), 'config', 'ur_controllers.yaml')
+    rviz_config_file = os.path.join(get_package_share_directory(description_pkg), 'rviz', 'my_robot_view.rviz')
 
-    joint_limits_yaml = load_yaml("my_ur_description", "config/joint_limits.yaml")
-    # Then add {'robot_description_planning': joint_limits_yaml} to the parameters list
-    
-    # 4. RViz Configuration File Path
-    rviz_config_file = os.path.join(
-        get_package_share_directory(description_pkg), 'rviz', 'my_robot_view.rviz'
-    )
-
-    # 5. MoveIt Controller Config
+    # 4. MoveIt Configs
     moveit_controllers = {
         'moveit_simple_controller_manager': {
             'controller_names': ['joint_trajectory_controller', 'robotiq_gripper_controller'],
@@ -65,7 +84,6 @@ def generate_launch_description():
         }
     }
 
-    # 6. Planning Pipeline
     planning_pipeline_config = {
         'default_planning_pipeline': 'ompl',
         'planning_pipelines': ['ompl'],
@@ -81,23 +99,11 @@ def generate_launch_description():
         }
     }
 
-    # Define RViz node
-    rviz_node = Node(
-        package='rviz2',
-        executable='rviz2',
-        name='rviz2',
-        output='screen',
-        arguments=['-d', rviz_config_file],
-        parameters=[
-            robot_description, 
-            robot_description_semantic, 
-            kinematics_yaml,
-            rviz_kinematics_config,
-            planning_pipeline_config
-        ],
-    )
-
+    # 5. Nodes
     return LaunchDescription([
+        use_fake_hardware_arg,
+        robot_ip_arg,
+
         Node(
             package='robot_state_publisher', 
             executable='robot_state_publisher', 
@@ -109,9 +115,8 @@ def generate_launch_description():
             package='controller_manager',
             executable='ros2_control_node',
             parameters=[
-                {'robot_description': robot_description_config.toxml(), 
-                 'use_sim_time': False,
-                 'update_rate': 100},
+                robot_description, 
+                {'use_sim_time': False, 'update_rate': 100},
                 controllers_yaml
             ],
             output='both',
@@ -124,20 +129,12 @@ def generate_launch_description():
             parameters=[
                 robot_description,
                 robot_description_semantic,
-                kinematics_parameters,
+                {'robot_description_kinematics': kinematics_yaml},
                 planning_pipeline_config,
                 moveit_controllers,
                 {
                     'use_sim_time': False,
-                    'monitor_dynamics': False,
                     'publish_planning_scene': True,
-                    'joint_state_monitor.max_joint_state_age': 0.0, 
-                    'wait_for_initial_state_timeout': 20.0,
-                    'trajectory_execution.check_starting_state': False,
-                    'trajectory_execution.allowed_start_tolerance': 0.0,
-                    'trajectory_execution.execution_duration_monitoring': False,
-                    'planning_time': 10.0,
-                    'planning_attempts': 10,
                     'robot_description_planning': joint_limits_yaml
                 }
             ],
@@ -147,5 +144,19 @@ def generate_launch_description():
         Node(package='controller_manager', executable='spawner', arguments=['joint_trajectory_controller']),
         Node(package='controller_manager', executable='spawner', arguments=['robotiq_gripper_controller']),
 
-        TimerAction(period=5.0, actions=[rviz_node])
+        TimerAction(period=5.0, actions=[
+            Node(
+                package='rviz2',
+                executable='rviz2',
+                name='rviz2',
+                output='screen',
+                arguments=['-d', rviz_config_file],
+                parameters=[
+                    robot_description, 
+                    robot_description_semantic, 
+                    {'robot_description_kinematics': kinematics_yaml},
+                    planning_pipeline_config
+                ],
+            )
+        ])
     ])
