@@ -6,9 +6,8 @@ services:
     container_name: simulator
     network_mode: host
     volumes:
-      # Map the entire local 'urcaps' folder to the URSim bundle folder 
-      - ./urcaps:/ursim/programs.sdk/GUI/bundle
-      - ./urcaps:/ursim/programs/extract/GUI/bundle
+      # Map the entire local 'urcaps' folder to the URSim bundle folder
+      - ./urcaps:/ursim/programs.sdk/GUI/bundle    
     environment:
       - UR_TYPE=ur12e
     restart: unless-stopped
