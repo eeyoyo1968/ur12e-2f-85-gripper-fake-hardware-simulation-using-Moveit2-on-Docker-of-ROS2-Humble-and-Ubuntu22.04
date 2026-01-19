@@ -245,6 +245,46 @@ class UR12eController(Node):
             return None
 
 
+
+    def get_ik_pose(self, x, y, z, qx, qy, qz, qw, frame_id="base_link", seed_joints=None):
+        """
+        Uses MoveIt IK service with full Pose (XYZ + Quaternion).
+        """
+        ik_client = self.create_client(GetPositionIK, 'compute_ik')
+        while not ik_client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info('IK service not available, waiting...')
+
+        request = GetPositionIK.Request()
+        ik_request = PositionIKRequest()
+        ik_request.group_name = "ur_manipulator"
+        
+        target_pose = PoseStamped()
+        target_pose.header.frame_id = frame_id
+        target_pose.pose.position = Point(x=float(x), y=float(y), z=float(z))
+        # Use the passed quaternion values
+        target_pose.pose.orientation = Quaternion(x=float(qx), y=float(qy), z=float(qz), w=float(qw))
+        
+        ik_request.pose_stamped = target_pose
+        ik_request.avoid_collisions = True
+
+        if seed_joints is not None:
+            ik_request.robot_state.joint_state.name = [
+                'shoulder_pan_joint', 'shoulder_lift_joint', 'elbow_joint', 
+                'wrist_1_joint', 'wrist_2_joint', 'wrist_3_joint'
+            ]
+            ik_request.robot_state.joint_state.position = [float(p) for p in seed_joints]
+        
+        request.ik_request = ik_request
+        future = ik_client.call_async(request)
+        rclpy.spin_until_future_complete(self, future)
+        response = future.result()
+
+        if response.error_code.val == 1:
+            return response.solution.joint_state.position
+        else:
+            return None
+
+
     def move_xyz_no_flip(self, x, y, z, frame_id="base_link"):
         self.get_logger().info(f"Targeting Cartesian: ({x}, {y}, {z})")
         
@@ -386,87 +426,93 @@ class UR12eController(Node):
         
         self.get_logger().info("Gripper volume attached to planning scene.")
 
+    def move_xyz_theta(self, x, y, z, theta_rad, frame_id="base_link"):
+        """
+        Moves to XYZ while pointing down, rotated by theta_rad around the Z-axis.
+        theta_rad = 0 means the gripper fingers are aligned with the X-axis.
+        """
+        self.get_logger().info(f"Moving to XYZ: ({x}, {y}, {z}) with Twist: {theta_rad:.2f} rad")
+
+        # 1. Start with the 'Base Downward' orientation (180 deg around X)
+        # 2. Apply a rotation of 'theta' around the NEW Z axis
+        # Formula for combining these:
+        ox = math.cos(theta_rad / 2.0)
+        oy = math.sin(theta_rad / 2.0)
+        oz = 0.0
+        ow = 0.0
+        
+        # Note: In UR robots, x=1.0, y=0.0, z=0.0, w=0.0 is the standard 'down'
+        # To twist that, we modify the y and z components:
+        nx = 1.0 * math.cos(theta_rad / 2.0)
+        ny = 1.0 * math.sin(theta_rad / 2.0)
+        nz = 0.0
+        nw = 0.0
+        
+        # Simpler approach: Use the no_flip logic with the calculated orientation
+        # ox, oy, oz, ow for a 'down + twist' is:
+        # q_down = [1, 0, 0, 0]
+        # q_twist = [0, 0, sin(t/2), cos(t/2)]
+        # Resulting Quaternion:
+        qx = math.cos(theta_rad / 2.0)
+        qy = -math.sin(theta_rad / 2.0)
+        qz = 0.0
+        qw = 0.0
+
+        return self.move_pose_no_flip(x, y, z, qx, qy, qz, qw, frame_id)
+
+    def move_xyz_theta_no_flip(self, x, y, z, theta_rad, frame_id="base_link"):
+        """
+        Moves to XYZ pointing down, with a twist theta_rad.
+        Includes a guard to prevent the wrist from spinning more than 180 degrees.
+        """
+        self.get_logger().info(f"Targeting XYZ: ({x}, {y}, {z}) Theta: {math.degrees(theta_rad):.1f} deg")
+
+        # 1. Calculate Quaternion for Downward + Twist
+        # Standard 'pointing down' is a 180-deg rotation around X.
+        # We combine that with a 'theta' rotation around the Z-axis.
+        qx = math.cos(theta_rad / 2.0)
+        qy = -math.sin(theta_rad / 2.0)
+        qz = 0.0
+        qw = 0.0
+
+        # 2. Get IK Solution using your existing no-flip logic
+        home_seed = [-1.5707, -2.3562, 2.3562, -1.5707, -1.5707, 0.0]
+        joint_solution = self.get_ik_pose(x, y, z, qx, qy, qz, qw, frame_id, seed_joints=home_seed)
+
+        if joint_solution is not None:
+            arm_joints = list(joint_solution[:6])
+            
+            # 3. ROTATION GUARD: Normalize wrist_3_joint (Index 5)
+            # This prevents the 'long way around' 270-degree spins.
+            # It keeps the joint value between -pi and pi.
+            wrist_val = arm_joints[5]
+            arm_joints[5] = (wrist_val + math.pi) % (2 * math.pi) - math.pi
+            
+            self.get_logger().info(f"Wrist adjusted from {wrist_val:.2f} to {arm_joints[5]:.2f}")
+            return self.jmove(arm_joints)
+        else:
+            self.get_logger().error("IK failed for this rotation.")
+            return False
+
+    
+
 def main():
-    # ... init bot ...
     rclpy.init()
     bot = UR12eController()
-
-    # 1. Build the virtual world
-    bot.add_table()
     
-    # 2. Attach the gripper safety volume
-    # bot.attach_gripper()
+    # Points on a square
+    points = [
+        (0.5, -0.2, 0.4, 0.0),            # 0 degrees
+        (0.6, -0.2, 0.4, math.pi/2),     # 90 degrees
+        (0.6, 0.2, 0.4, math.pi),        # 180 degrees
+        (0.5, 0.2, 0.4, -math.pi/2)      # -90 degrees (Shortest path from 180)
+    ]
 
-    # --- Math Constants ---
-    PI = math.pi
-    D2R = PI / 180.0
+    for x, y, z, th in points:
+        bot.move_xyz_theta(x, y, z, th)
+        time.sleep(1.0)
 
-    # --- Pose Definitions ---
-    # Home (Shoulder at -90 degrees)
-    home = [-1.5707, -2.3562, 2.3562, -1.5707, -1.5707, 0.0]
-
-
-    # 1. Move to a safe "Home" using joints
-    bot.jmove(home)
-
-
-
-
-    # 2. Move to a coordinate above the table
-    # x=0.5m, y=0.0m, z=0.3m
-    bot.get_logger().info("Moving to Cartesian Pick Coordinate")
-    # This will find the joints closest to 'home' that reach this XYZ
-    bot.move_pose_no_flip(0.6, -0.2, 0.5, 1.0, 0.0, 0.0, 0.0)
-    bot.gripper_move(0.0)  # open the gripper
-    # With this:
-    # bot.call_gripper(False) # False = Open
-    # time.sleep(2.0)         # Give the real/mock hardware time to move
-
-    #bot.get_logger().info("jmove home")
-    #bot.jmove(home)
-    
-    # 3. Lower to pick the object
-    bot.move_xyz_no_flip(0.6, -0.2, 0.3)   # default baselink
-    #time.sleep(5)
-    # 4. Grasp logic
-    bot.gripper_move(0.8)
-    # With this:
-    # bot.call_gripper(True) # False = Open
-    # time.sleep(2.0)         # Give the real/mock hardware time to move
-
-    if bot.check_grasp_success():
-        # Lift up
-        bot.get_logger().info("grasp success")
-        bot.move_xyz_no_flip(0.6, -0.2, 0.5)
-
-         
-    #time.sleep(0.5)
-    #bot.get_logger().info("jmove home")
-    #bot.jmove(home)
-    #ime.sleep(1)
-
-    #bot.get_logger().info("jmove up")
-    #bot.jmove([-0.294, -1.72, 2.022, -1.873, -1.571, -1.865])
-    #time.sleep(1)
-
-    bot.move_xyz_no_flip(0.6, -0.2, 0.5)
-    time.sleep(1)
-
-    bot.move_xyz_no_flip(0.6, 0.2, 0.5)
-    time.sleep(1)
-
-    bot.move_xyz_no_flip(0.6, 0.2, 0.3)
-    time.sleep(2)
-
-    bot.gripper_move(0.0)
-
-
-    # Instead of move_xyz, use the IK-guarded version
-    bot.jmove(home) 
-
-
-    bot.get_logger().info("Shutting down controller.")
-    bot.destroy_node()
+    bot.jmove([-1.5707, -2.3562, 2.3562, -1.5707, -1.5707, 0.0])
     rclpy.shutdown()
         
 if __name__ == '__main__':

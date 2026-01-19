@@ -1,29 +1,8 @@
-import rclpy
-from rclpy.node import Node
-from rclpy.action import ActionClient
-import time
-import math
-import numpy as np
-
 from moveit_msgs.msg import CollisionObject
 from shape_msgs.msg import SolidPrimitive
 from geometry_msgs.msg import Pose
 
-from moveit_msgs.msg import AttachedCollisionObject
-
-# Messages
-from moveit_msgs.action import MoveGroup
-from moveit_msgs.msg import Constraints, JointConstraint
-from control_msgs.action import FollowJointTrajectory
-from trajectory_msgs.msg import JointTrajectoryPoint
-from sensor_msgs.msg import JointState 
-
-from geometry_msgs.msg import Pose, Point, Quaternion, PoseStamped # <--- Corrected Import
-from moveit_msgs.msg import Constraints, PositionConstraint, OrientationConstraint
-from shape_msgs.msg import SolidPrimitive
-
-from moveit_msgs.srv import GetPositionIK
-from moveit_msgs.msg import PositionIKRequest
+# ... inside your UR12eController class ...
 
 class UR12eController(Node):
     def __init__(self):
@@ -387,87 +366,15 @@ class UR12eController(Node):
         self.get_logger().info("Gripper volume attached to planning scene.")
 
 def main():
-    # ... init bot ...
     rclpy.init()
     bot = UR12eController()
-
     # 1. Build the virtual world
-    bot.add_table()
+    bot.add_table() # Build the virtual world
+    # bot.add_wall() # You could add walls too!
+
     
     # 2. Attach the gripper safety volume
-    # bot.attach_gripper()
+    bot.attach_gripper()
 
-    # --- Math Constants ---
-    PI = math.pi
-    D2R = PI / 180.0
-
-    # --- Pose Definitions ---
-    # Home (Shoulder at -90 degrees)
-    home = [-1.5707, -2.3562, 2.3562, -1.5707, -1.5707, 0.0]
-
-
-    # 1. Move to a safe "Home" using joints
-    bot.jmove(home)
-
-
-
-
-    # 2. Move to a coordinate above the table
-    # x=0.5m, y=0.0m, z=0.3m
-    bot.get_logger().info("Moving to Cartesian Pick Coordinate")
-    # This will find the joints closest to 'home' that reach this XYZ
-    bot.move_pose_no_flip(0.6, -0.2, 0.5, 1.0, 0.0, 0.0, 0.0)
-    bot.gripper_move(0.0)  # open the gripper
-    # With this:
-    # bot.call_gripper(False) # False = Open
-    # time.sleep(2.0)         # Give the real/mock hardware time to move
-
-    #bot.get_logger().info("jmove home")
-    #bot.jmove(home)
-    
-    # 3. Lower to pick the object
-    bot.move_xyz_no_flip(0.6, -0.2, 0.3)   # default baselink
-    #time.sleep(5)
-    # 4. Grasp logic
-    bot.gripper_move(0.8)
-    # With this:
-    # bot.call_gripper(True) # False = Open
-    # time.sleep(2.0)         # Give the real/mock hardware time to move
-
-    if bot.check_grasp_success():
-        # Lift up
-        bot.get_logger().info("grasp success")
-        bot.move_xyz_no_flip(0.6, -0.2, 0.5)
-
-         
-    #time.sleep(0.5)
-    #bot.get_logger().info("jmove home")
-    #bot.jmove(home)
-    #ime.sleep(1)
-
-    #bot.get_logger().info("jmove up")
-    #bot.jmove([-0.294, -1.72, 2.022, -1.873, -1.571, -1.865])
-    #time.sleep(1)
-
-    bot.move_xyz_no_flip(0.6, -0.2, 0.5)
-    time.sleep(1)
-
-    bot.move_xyz_no_flip(0.6, 0.2, 0.5)
-    time.sleep(1)
-
-    bot.move_xyz_no_flip(0.6, 0.2, 0.3)
-    time.sleep(2)
-
-    bot.gripper_move(0.0)
-
-
-    # Instead of move_xyz, use the IK-guarded version
-    bot.jmove(home) 
-
-
-    bot.get_logger().info("Shutting down controller.")
-    bot.destroy_node()
+    bot.get_logger().info("Environment Configured.")
     rclpy.shutdown()
-        
-if __name__ == '__main__':
-    main()
