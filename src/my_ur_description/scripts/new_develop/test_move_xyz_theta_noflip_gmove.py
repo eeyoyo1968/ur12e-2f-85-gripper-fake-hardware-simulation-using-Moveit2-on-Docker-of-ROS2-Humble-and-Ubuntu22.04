@@ -371,7 +371,9 @@ class UR12eController(Node):
         # Dimensions: X=1.5m, Y=1.5m, Z=0.02m (2cm thick)
         box = SolidPrimitive()
         box.type = SolidPrimitive.BOX
-        box.dimensions = [1.5, 1.5, 0.02]
+        # box.dimensions = [1.5, 1.5, 0.02]
+        box.dimensions = [0.3, 0.3, 0.02]
+        
         
         # Define the table position
         # We place it slightly below the robot base (Z = -0.01)
@@ -493,7 +495,26 @@ class UR12eController(Node):
         else:
             self.get_logger().error("IK failed for this rotation.")
             return False
-
+            
+    def monitor_grasp(self, expected_min=0.1, expected_max=0.7):
+        """
+        Returns True if the gripper position is within a range that suggests 
+        it is actually holding an object. 
+        If it reaches 0.795 (fully closed), it missed the object.
+        """
+        # Small delay to let simulation/hardware settle
+        time.sleep(0.5) 
+        pos = self.current_gripper_pos
+        
+        if pos > 0.75:
+            self.get_logger().error("Grasp Failed: Gripper is empty!")
+            return False
+        elif pos < 0.05:
+            self.get_logger().error("Grasp Failed: Gripper did not close!")
+            return False
+        else:
+            self.get_logger().info(f"Grasp Verified: Holding object at {pos:.3f}")
+            return True
     
 
 def main():
