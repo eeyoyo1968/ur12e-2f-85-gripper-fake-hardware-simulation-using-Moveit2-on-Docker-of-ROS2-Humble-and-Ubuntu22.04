@@ -1,6 +1,7 @@
 <?xml version="1.0"?>
 <robot xmlns:xacro="http://wiki.ros.org/xacro" name="ur">
   <xacro:arg name="use_fake_hardware" default="false" />
+  <xacro:arg name="robot_ip" default="127.0.0.1" />
    
   <xacro:arg name="external_interface_adapter" default="false" />
   <xacro:include filename="$(find ur_description)/urdf/ur_macro.xacro"/>
@@ -116,8 +117,8 @@
     <origin xyz="0 0 0" rpy="0 0 0" />
   </xacro:robotiq_gripper>  
 
-  <xacro:arg name="use_fake_hardware" default="true" />
-  <xacro:arg name="robot_ip" default="127.0.0.1" />
+
+
 
   <ros2_control name="URHardwareInterface" type="system">
     <hardware>
