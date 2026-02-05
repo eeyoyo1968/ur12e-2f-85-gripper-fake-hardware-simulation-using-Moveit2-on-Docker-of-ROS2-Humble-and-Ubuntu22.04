@@ -20,7 +20,7 @@ services:
     privileged: true
     ipc: host # Shared memory for faster communication
     volumes:
-      - /home/yoyo/humble_ws:/ros2_ws
+      - ./:/ros2_ws
       - /tmp/.X11-unix:/tmp/.X11-unix # Allows RViz to open on your screen
     environment:
       - DISPLAY=${DISPLAY}

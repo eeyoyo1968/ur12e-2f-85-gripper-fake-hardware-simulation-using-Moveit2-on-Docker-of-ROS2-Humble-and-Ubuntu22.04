@@ -109,7 +109,8 @@
     visual_parameters_file="$(find ur_description)/config/ur12e/visual_parameters.yaml"
     safety_limits="false"
     safety_pos_margin="0.15"
-    safety_k_position="20">
+    safety_k_position="20"
+    generate_ros2_control_tag="false">
     <origin xyz="-0.75 0 -0.025" rpy="0 0 0" />
   </xacro:ur_robot>
 
@@ -127,7 +128,7 @@
         <param name="calculate_dynamics">true</param>
       </xacro:if>
       <xacro:unless value="$(arg use_fake_hardware)">
-        <plugin>ur_robot_driver/URHardwareInterface</plugin>
+        <plugin>ur_robot_driver/URPositionHardwareInterface</plugin>
         <param name="robot_ip">$(arg robot_ip)</param>
         <param name="keep_alive_count">2</param>
 
