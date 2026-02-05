@@ -372,14 +372,14 @@ class UR12eController(Node):
         box = SolidPrimitive()
         box.type = SolidPrimitive.BOX
         # box.dimensions = [1.5, 1.5, 0.02]
-        box.dimensions = [0.3, 0.3, 0.02]
+        box.dimensions = [0.26, 0.26, 0.02]
         
         
         # Define the table position
         # We place it slightly below the robot base (Z = -0.01)
         table_pose = Pose()
         table_pose.position.x = 0.0
-        table_pose.position.y = 0.0
+        table_pose.position.y = -0.0
         table_pose.position.z = -0.02 # Just below the base
         
         table_object.primitives.append(box)
