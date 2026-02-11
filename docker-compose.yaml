@@ -24,6 +24,7 @@ services:
       - /tmp/.X11-unix:/tmp/.X11-unix # Allows RViz to open on your screen
     environment:
       - DISPLAY=${DISPLAY}
+      - ROS_DOMAIN_ID=42  # <--- This isolates your ROS 2 traffic
     stdin_open: true
     tty: true
     depends_on:
