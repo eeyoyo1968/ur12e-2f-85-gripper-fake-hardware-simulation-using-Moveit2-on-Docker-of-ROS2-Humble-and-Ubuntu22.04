@@ -289,7 +289,8 @@ class UR12eController(Node):
         self.get_logger().info(f"Targeting Cartesian: ({x}, {y}, {z})")
         
         # We use 'home' as the seed to keep the configuration consistent (no flips)
-        home_seed = [-1.5707, -2.3562, 2.3562, -1.5707, -1.5707, 0.0]
+        #home_seed = [-1.5707, -2.3562, 2.3562, -1.5707, -1.5707, 0.0]
+        home_seed = [3.1415, -0.7854, -2.3562, -1.5707, 1.5707, 0.0]
         
         joint_solution = self.get_ik(x, y, z, frame_id, seed_joints=home_seed)
         
@@ -315,7 +316,8 @@ class UR12eController(Node):
 
         # 1. Define the 'Home' or 'Reference' seed to keep configuration consistent
         # This prevents the robot from choosing a flipped IK solution
-        home_seed = [-1.5707, -2.3562, 2.3562, -1.5707, -1.5707, 0.0]
+        #home_seed = [-1.5707, -2.3562, 2.3562, -1.5707, -1.5707, 0.0]
+        home_seed = [3.1415, -0.7854, -2.3562, -1.5707, 1.5707, 0.0]
 
         # 2. Call IK service with the specific orientation
         ik_client = self.create_client(GetPositionIK, 'compute_ik')
@@ -478,7 +480,9 @@ class UR12eController(Node):
         qw = 0.0
 
         # 2. Get IK Solution using your existing no-flip logic
-        home_seed = [-1.5707, -2.3562, 2.3562, -1.5707, -1.5707, 0.0]
+        #home_seed = [-1.5707, -2.3562, 2.3562, -1.5707, -1.5707, 0.0]
+        home_seed = [3.1415, -0.7854, -2.3562, -1.5707, 1.5707, 0.0]
+        
         joint_solution = self.get_ik_pose(x, y, z, qx, qy, qz, qw, frame_id, seed_joints=home_seed)
 
         if joint_solution is not None:
@@ -534,7 +538,8 @@ def main():
 
     # --- Pose Definitions ---
     # Home (Shoulder at -90 degrees)
-    home = [0.0, -2.3562, 2.3562, -1.5707, -1.5707, 0.0]
+    #home = [0.0, -2.3562, 2.3562, -1.5707, -1.5707, 0.0]
+    home = [3.1415, -0.7854, -2.3562, -1.5707, 1.5707, 0.0]
 
 
     # 1. Move to a safe "Home" using joints

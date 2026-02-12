@@ -60,7 +60,8 @@ def main():
     
     # 1. Define your vectors
     # Home: Elbow Up configuration
-    home = [0.0, -2.3562, 2.3562, -1.5707, -1.5707, 0.0]
+    #home = [0.0, -2.3562, 2.3562, -1.5707, -1.5707, 0.0]
+    home = [3.1415, -0.7854, -2.3562, -1.5707, 1.5707, 0.0]
     
     # Pick Approach: Elbow Down configuration
     pick_approach = [0.0, -1.5707, 1.5707, -1.5707, -1.5707, 0.0]
@@ -72,7 +73,7 @@ def main():
     pick2 = np.array([-16,-72, 113, -129, -90, 86])*pi/180
 
     # Standard UR "Up" pose: All zeros except shoulder lift and elbow
-    up_pose = [0.0, -1.5707, 0.0, -1.5707, 0.0, 0.0]
+    up_pose = [-1.5707, -1.5707, 0.0, -1.5707, 0.0, 0.0]
  
     
     # 2. Execute Sequence
