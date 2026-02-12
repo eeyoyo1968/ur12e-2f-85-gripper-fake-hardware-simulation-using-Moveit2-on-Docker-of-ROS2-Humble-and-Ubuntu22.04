@@ -22,7 +22,7 @@
   </group>
 
   <group_state group="ur_manipulator" name="home">
-    <joint name="$(arg prefix)shoulder_pan_joint" value="3.1415"/>
+    <joint name="$(arg prefix)shoulder_pan_joint" value="4.7124"/>
     <joint name="$(arg prefix)shoulder_lift_joint" value="-0.7854"/>
     <joint name="$(arg prefix)elbow_joint" value="-2.3562"/> 
     <joint name="$(arg prefix)wrist_1_joint" value="-1.5707"/>

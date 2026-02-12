@@ -290,7 +290,7 @@ class UR12eController(Node):
         
         # We use 'home' as the seed to keep the configuration consistent (no flips)
         #home_seed = [-1.5707, -2.3562, 2.3562, -1.5707, -1.5707, 0.0]
-        home_seed = [3.1415, -0.7854, -2.3562, -1.5707, 1.5707, 0.0]
+        home_seed = [4.7124, -0.7854, -2.3562, -1.5707, 1.5707, 0.0]
         
         joint_solution = self.get_ik(x, y, z, frame_id, seed_joints=home_seed)
         
@@ -317,7 +317,7 @@ class UR12eController(Node):
         # 1. Define the 'Home' or 'Reference' seed to keep configuration consistent
         # This prevents the robot from choosing a flipped IK solution
         #home_seed = [-1.5707, -2.3562, 2.3562, -1.5707, -1.5707, 0.0]
-        home_seed = [3.1415, -0.7854, -2.3562, -1.5707, 1.5707, 0.0]
+        home_seed = [4.7124, -0.7854, -2.3562, -1.5707, 1.5707, 0.0]
 
         # 2. Call IK service with the specific orientation
         ik_client = self.create_client(GetPositionIK, 'compute_ik')
@@ -481,7 +481,7 @@ class UR12eController(Node):
 
         # 2. Get IK Solution using your existing no-flip logic
         #home_seed = [-1.5707, -2.3562, 2.3562, -1.5707, -1.5707, 0.0]
-        home_seed = [3.1415, -0.7854, -2.3562, -1.5707, 1.5707, 0.0]
+        home_seed = [4.7124, -0.7854, -2.3562, -1.5707, 1.5707, 0.0]
         
         joint_solution = self.get_ik_pose(x, y, z, qx, qy, qz, qw, frame_id, seed_joints=home_seed)
 
@@ -539,7 +539,8 @@ def main():
     # --- Pose Definitions ---
     # Home (Shoulder at -90 degrees)
     #home = [0.0, -2.3562, 2.3562, -1.5707, -1.5707, 0.0]
-    home = [3.1415, -0.7854, -2.3562, -1.5707, 1.5707, 0.0]
+    #home = [3.14159, -0.7854, -2.3562, -1.5707, 1.5707, 0.0]
+    home = [4.7124, -0.7854, -2.3562, -1.5707, 1.5707, 0.0]
 
 
     # 1. Move to a safe "Home" using joints
@@ -552,7 +553,8 @@ def main():
     # x=0.5m, y=0.0m, z=0.3m
     bot.get_logger().info("Moving to Cartesian Pick Coordinate")
     # This will find the joints closest to 'home' that reach this XYZ
-    bot.move_pose_no_flip(0.6, -0.2, 0.5, 1.0, 0.0, 0.0, 0.0)
+    #bot.move_pose_no_flip(0.6, -0.2, 0.5, 1.0, 0.0, 0.0, 0.0)
+    bot.move_pose_no_flip(0.2, 0.6, 0.5, 1.0, 0.0, 0.0, 0.0)
     bot.gripper_move(0.0)  # open the gripper
     # With this:
     # bot.call_gripper(False) # False = Open
@@ -562,7 +564,9 @@ def main():
     #bot.jmove(home)
     
     # 3. Lower to pick the object
-    bot.move_xyz_no_flip(0.6, -0.2, 0.3)   # default baselink
+   #bot.move_xyz_no_flip(0.6, -0.2, 0.3)   # default baselink
+    bot.move_xyz_no_flip(0.2, 0.6, 0.3)   # default baselink
+
     #time.sleep(5)
     # 4. Grasp logic
     bot.gripper_move(0.8)
@@ -573,8 +577,8 @@ def main():
     if bot.check_grasp_success():
         # Lift up
         bot.get_logger().info("grasp success")
-        bot.move_xyz_no_flip(0.6, -0.2, 0.5)
-
+        #bot.move_xyz_no_flip(0.6, -0.2, 0.7)
+        bot.move_xyz_no_flip(0.2, 0.6, 0.7)
          
     #time.sleep(0.5)
     #bot.get_logger().info("jmove home")
@@ -587,20 +591,26 @@ def main():
 
     # Move to pick a block rotated at 45 degrees
     angle = 45.0 * (math.pi / 180.0) # Convert to radians
-    bot.move_xyz_theta_no_flip(0.6, -0.2, 0.5, angle)
+    #bot.move_xyz_theta_no_flip(0.6, -0.2, 0.7, angle)
+    bot.move_xyz_theta_no_flip(0.2, 0.6, 0.7, angle)
 
     # bot.move_xyz_no_flip(0.6, -0.2, 0.5)
     time.sleep(1)
 
-    bot.move_xyz_theta_no_flip(0.6, 0.2, 0.5, -angle)
+    #bot.move_xyz_theta_no_flip(0.6, 0.2, 0.7, -angle)
+    bot.move_xyz_theta_no_flip(-0.2, 0.6, 0.7, -angle)
     # bot.move_xyz_no_flip(0.6, 0.2, 0.5)
     time.sleep(1)
 
-    bot.move_xyz_no_flip(0.6, 0.2, 0.3)
+    #bot.move_xyz_no_flip(0.6, 0.2, 0.3)
+    bot.move_xyz_no_flip(-0.2, 0.6, 0.3)
     time.sleep(2)
 
     bot.gripper_move(0.0)
 
+    #bot.move_xyz_no_flip(0.6, 0.2, 0.7)
+    bot.move_xyz_no_flip(-0.2, 0.6, 0.7)
+    time.sleep(2)
 
     # Instead of move_xyz, use the IK-guarded version
     bot.jmove(home) 
