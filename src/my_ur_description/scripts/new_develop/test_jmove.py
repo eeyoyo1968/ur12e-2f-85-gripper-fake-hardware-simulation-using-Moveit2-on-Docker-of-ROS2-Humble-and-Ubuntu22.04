@@ -60,7 +60,7 @@ def main():
     
     # 1. Define your vectors
     # Home: Elbow Up configuration
-    home = [-1.5707, -2.3562, 2.3562, -1.5707, -1.5707, 0.0]
+    home = [0.0, -2.3562, 2.3562, -1.5707, -1.5707, 0.0]
     
     # Pick Approach: Elbow Down configuration
     pick_approach = [0.0, -1.5707, 1.5707, -1.5707, -1.5707, 0.0]

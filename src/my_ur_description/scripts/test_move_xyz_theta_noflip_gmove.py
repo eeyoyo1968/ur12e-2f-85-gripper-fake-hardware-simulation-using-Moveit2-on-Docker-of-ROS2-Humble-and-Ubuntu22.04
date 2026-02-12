@@ -534,7 +534,7 @@ def main():
 
     # --- Pose Definitions ---
     # Home (Shoulder at -90 degrees)
-    home = [-1.5707, -2.3562, 2.3562, -1.5707, -1.5707, 0.0]
+    home = [0.0, -2.3562, 2.3562, -1.5707, -1.5707, 0.0]
 
 
     # 1. Move to a safe "Home" using joints

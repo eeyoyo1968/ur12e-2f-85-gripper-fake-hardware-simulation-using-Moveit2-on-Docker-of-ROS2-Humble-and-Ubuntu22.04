@@ -78,7 +78,7 @@ def main():
 
     # Pose Definitions
     # Home: Using the -1.5707 you found worked
-    home = [-1.5707, -2.3562, 2.3562, -1.5707, -1.5707, 0.0]
+    home = [0.0, -2.3562, 2.3562, -1.5707, -1.5707, 0.0]
     
     # Pick positions using math for clarity
     pick = np.array([-16.0, -74.0, 113.0, -129.0, -90.0, 74.0]) * D2R

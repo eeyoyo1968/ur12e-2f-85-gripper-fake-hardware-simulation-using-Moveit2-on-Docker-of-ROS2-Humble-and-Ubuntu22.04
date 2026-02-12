@@ -33,7 +33,7 @@
   </link>
   <joint name="desk_to_back_wall" type="fixed">
     <parent link="easydesk"/><child link="back_wall"/>
-    <origin xyz="-0.25 0.6 0.75" rpy="0 0 0"/> 
+    <origin xyz="-0.25 0.8 0.75" rpy="0 0 0"/> 
   </joint>
 
   <link name="front_wall">
@@ -45,7 +45,7 @@
   </link>
   <joint name="desk_to_front_wall" type="fixed">
     <parent link="easydesk"/><child link="front_wall"/>
-    <origin xyz="-0.25 -0.45 0.75" rpy="0 0 0"/> 
+    <origin xyz="-0.25 -0.6 0.75" rpy="0 0 0"/> 
   </joint>
 
   <link name="left_wall">
@@ -57,7 +57,7 @@
   </link>
   <joint name="desk_to_left_wall" type="fixed">
     <parent link="easydesk"/><child link="left_wall"/>
-    <origin xyz="-1.0 0.0 0.75" rpy="0 0 0"/> 
+    <origin xyz="-1.5 0.0 0.75" rpy="0 0 0"/> 
   </joint>
 
   <link name="right_wall">
@@ -99,8 +99,8 @@
     </joint>
   </xacro:macro> 
 
-  <xacro:d435_mount prefix="cam_left" x="0.2" y="0.4" z="0.2" yaw="1.57"/>
-  <xacro:d435_mount prefix="cam_right" x="0.6" y="0.02" z="0.6" yaw="3.14"/>
+  <xacro:d435_mount prefix="cam_left" x="0.2" y="-0.4" z="0.2" yaw="${pi/2}"/>
+  <xacro:d435_mount prefix="cam_right" x="0.6" y="0.02" z="0.6" yaw="${pi}"/>
   
 <xacro:ur_robot name="ur" tf_prefix="" parent="easydesk"
     joint_limits_parameters_file="$(find ur_description)/config/ur12e/joint_limits.yaml"
@@ -158,14 +158,14 @@
     <joint name="shoulder_lift_joint">
       <command_interface name="position"/>
       <command_interface name="velocity"/>
-      <state_interface name="position"><param name="initial_value">-1.57</param></state_interface>
+      <state_interface name="position"><param name="initial_value">-2.35</param></state_interface>
       <state_interface name="velocity"/>
       <state_interface name="effort"/> 
     </joint>
     <joint name="elbow_joint">
       <command_interface name="position"/>
       <command_interface name="velocity"/>
-      <state_interface name="position"><param name="initial_value">0.0</param></state_interface>
+      <state_interface name="position"><param name="initial_value">2.35</param></state_interface>
       <state_interface name="velocity"/>
       <state_interface name="effort"/> 
     </joint>
@@ -179,7 +179,7 @@
     <joint name="wrist_2_joint">
       <command_interface name="position"/>
       <command_interface name="velocity"/>
-      <state_interface name="position"><param name="initial_value">0.0</param></state_interface>
+      <state_interface name="position"><param name="initial_value">-1.57</param></state_interface>
       <state_interface name="velocity"/>
       <state_interface name="effort"/> 
     </joint>

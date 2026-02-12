@@ -14,6 +14,7 @@ services:
     restart: unless-stopped
 
   ros_driver:
+    build: .
     image: ur_humble_workcell:latest
     container_name: ros_driver
     network_mode: host
