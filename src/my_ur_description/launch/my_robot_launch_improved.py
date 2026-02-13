@@ -194,12 +194,12 @@ def launch_setup(context, *args, **kwargs):
         ),
 
         # Spawn gripper controller (always needed)
-        Node(
-            package='controller_manager', 
-            executable='spawner', 
-            arguments=['robotiq_gripper_controller'],
-            output='screen',
-        ),
+        #Node(
+        #    package='controller_manager', 
+        #    executable='spawner', 
+        #    arguments=['robotiq_gripper_controller'],
+        #    output='screen',
+        #),
 
         # Launch RViz after a delay
         TimerAction(

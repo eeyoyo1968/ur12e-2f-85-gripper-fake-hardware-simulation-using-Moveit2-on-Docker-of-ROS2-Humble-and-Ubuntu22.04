@@ -73,7 +73,7 @@ def generate_launch_description():
     moveit_controllers = {
         'moveit_simple_controller_manager': {
             # ONLY include the controller that is actually spawned
-            'controller_names': [trajectory_controller_name, 'robotiq_gripper_controller'],
+            'controller_names': [trajectory_controller_name],
             
             trajectory_controller_name: {
                 'type': 'FollowJointTrajectory',
@@ -81,12 +81,7 @@ def generate_launch_description():
                 'default': True,
                 'joints': ['shoulder_pan_joint', 'shoulder_lift_joint', 'elbow_joint', 'wrist_1_joint', 'wrist_2_joint', 'wrist_3_joint'],
             },
-            'robotiq_gripper_controller': {
-                'type': 'FollowJointTrajectory',
-                'action_ns': 'follow_joint_trajectory',
-                'default': True,
-                'joints': ['robotiq_85_left_knuckle_joint'],
-            },
+
         }
     }
     planning_pipeline_config = {
@@ -153,7 +148,7 @@ def generate_launch_description():
             condition=UnlessCondition(use_fake_hardware_config)
         ),
 
-        Node(package='controller_manager', executable='spawner', arguments=['robotiq_gripper_controller']),
+        #Node(package='controller_manager', executable='spawner', arguments=['robotiq_gripper_controller']),
 
         TimerAction(period=5.0, actions=[
             Node(
