@@ -540,7 +540,7 @@ def main():
     # Home (Shoulder at -90 degrees)
     #home = [0.0, -2.3562, 2.3562, -1.5707, -1.5707, 0.0]
     #home = [3.14159, -0.7854, -2.3562, -1.5707, 1.5707, 0.0]
-    home = [4.7124, -0.7854, -2.3562, -1.5707, 1.5707, 0.0]
+    home = [4.7124, -0.5236, -2.618, -1.5707, 1.5707, 0.0]
 
 
     # 1. Move to a safe "Home" using joints
@@ -565,7 +565,7 @@ def main():
     
     # 3. Lower to pick the object
    #bot.move_xyz_no_flip(0.6, -0.2, 0.3)   # default baselink
-    bot.move_xyz_no_flip(0.2, 0.6, 0.3)   # default baselink
+    bot.move_xyz_no_flip(0.2, 0.6, 0.05)   # default baselink
 
     #time.sleep(5)
     # 4. Grasp logic
@@ -603,7 +603,7 @@ def main():
     time.sleep(1)
 
     #bot.move_xyz_no_flip(0.6, 0.2, 0.3)
-    bot.move_xyz_no_flip(-0.2, 0.6, 0.3)
+    bot.move_xyz_no_flip(-0.2, 0.6, 0.05)
     time.sleep(2)
 
     bot.gripper_move(0.0)
@@ -612,6 +612,10 @@ def main():
     bot.move_xyz_no_flip(-0.2, 0.6, 0.7)
     time.sleep(2)
 
+   # 1. Move to a safe "Home" using joints
+    bot.jmove(home)
+
+    
     # Instead of move_xyz, use the IK-guarded version
     bot.jmove(home) 
 
