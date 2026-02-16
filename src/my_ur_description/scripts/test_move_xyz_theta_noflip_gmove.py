@@ -290,7 +290,8 @@ class UR12eController(Node):
         
         # We use 'home' as the seed to keep the configuration consistent (no flips)
         #home_seed = [-1.5707, -2.3562, 2.3562, -1.5707, -1.5707, 0.0]
-        home_seed = [4.7124, -0.7854, -2.3562, -1.5707, 1.5707, 0.0]
+        #home_seed = [4.7124, -0.7854, -2.3562, -1.5707, 1.5707, 0.0]
+        home_seed = [4.7124, -0.5236, -2.618, -1.5707, 1.5707, 0.0]
         
         joint_solution = self.get_ik(x, y, z, frame_id, seed_joints=home_seed)
         
@@ -317,9 +318,10 @@ class UR12eController(Node):
         # 1. Define the 'Home' or 'Reference' seed to keep configuration consistent
         # This prevents the robot from choosing a flipped IK solution
         #home_seed = [-1.5707, -2.3562, 2.3562, -1.5707, -1.5707, 0.0]
-        home_seed = [4.7124, -0.7854, -2.3562, -1.5707, 1.5707, 0.0]
-
+        #home_seed = [4.7124, -0.7854, -2.3562, -1.5707, 1.5707, 0.0]
+        home_seed = [4.7124, -0.5236, -2.618, -1.5707, 1.5707, 0.0]
         # 2. Call IK service with the specific orientation
+        
         ik_client = self.create_client(GetPositionIK, 'compute_ik')
         while not ik_client.wait_for_service(timeout_sec=1.0):
             self.get_logger().info('Waiting for IK service...')
@@ -481,7 +483,8 @@ class UR12eController(Node):
 
         # 2. Get IK Solution using your existing no-flip logic
         #home_seed = [-1.5707, -2.3562, 2.3562, -1.5707, -1.5707, 0.0]
-        home_seed = [4.7124, -0.7854, -2.3562, -1.5707, 1.5707, 0.0]
+        #home_seed = [4.7124, -0.7854, -2.3562, -1.5707, 1.5707, 0.0]
+        home_seed = [4.7124, -0.5236, -2.618, -1.5707, 1.5707, 0.0]
         
         joint_solution = self.get_ik_pose(x, y, z, qx, qy, qz, qw, frame_id, seed_joints=home_seed)
 
