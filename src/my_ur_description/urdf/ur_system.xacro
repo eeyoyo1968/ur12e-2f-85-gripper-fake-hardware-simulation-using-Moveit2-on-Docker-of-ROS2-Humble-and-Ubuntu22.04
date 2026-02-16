@@ -11,65 +11,65 @@
 
   <link name="easydesk">
     <visual>
-      <geometry><box size="1.2 0.8 0.05"/></geometry>
+      <geometry><box size="0.8 1.2 0.05"/></geometry>
       <material name="light_grey"><color rgba="0.7 0.7 0.7 1"/></material>
     </visual>
     <collision>
-      <geometry><box size="1.2 0.8 0.05"/></geometry>
+      <geometry><box size="0.8 1.2 0.05"/></geometry>
     </collision>
   </link>
 
   <joint name="world_to_desk" type="fixed">
     <parent link="world"/><child link="easydesk"/>
-    <origin xyz="0.73 0 0.9" rpy="0 0 0"/>
-  </joint>
-
-  <link name="back_wall">
-    <collision><geometry><box size="2.5 0.01 1.5"/></geometry></collision>
-    <visual>
-      <geometry><box size="2.5 0.01 1.5"/></geometry>
-      <material name="transparent_red"><color rgba="1 0 0 0.05"/></material>
-    </visual>
-  </link>
-  <joint name="desk_to_back_wall" type="fixed">
-    <parent link="easydesk"/><child link="back_wall"/>
-    <origin xyz="-0.25 0.8 0.75" rpy="0 0 0"/> 
+    <origin xyz="0 0.73 0.9" rpy="0 0 0"/>
   </joint>
 
   <link name="front_wall">
-    <collision><geometry><box size="2.5 0.01 1.5"/></geometry></collision>
+    <collision><geometry><box size="1.4 0.01 1.5"/></geometry></collision>
     <visual>
-      <geometry><box size="2.5 0.01 1.5"/></geometry>
+      <geometry><box size="1.4 0.01 1.5"/></geometry>
       <material name="transparent_red"><color rgba="1 0 0 0.05"/></material>
     </visual>
   </link>
   <joint name="desk_to_front_wall" type="fixed">
     <parent link="easydesk"/><child link="front_wall"/>
-    <origin xyz="-0.25 -0.9 0.75" rpy="0 0 0"/> 
+    <origin xyz="-0.00 0.6 0.75" rpy="0 0 0"/> 
+  </joint>
+
+  <link name="back_wall">
+    <collision><geometry><box size="1.4 0.01 1.5"/></geometry></collision>
+    <visual>
+      <geometry><box size="1.4 0.01 1.5"/></geometry>
+      <material name="transparent_red"><color rgba="1 0 0 0.05"/></material>
+    </visual>
+  </link>
+  <joint name="desk_to_back_wall" type="fixed">
+    <parent link="easydesk"/><child link="back_wall"/>
+    <origin xyz="-0.00 -1.4 0.75" rpy="0 0 0"/> 
   </joint>
 
   <link name="left_wall">
-    <collision><geometry><box size="0.01 1.2 1.5"/></geometry></collision>
+    <collision><geometry><box size="0.01 2.25 1.5"/></geometry></collision>
     <visual>
-      <geometry><box size="0.01 1.2 1.5"/></geometry>
+      <geometry><box size="0.01 2.25 1.5"/></geometry>
       <material name="transparent_red"><color rgba="1 0 0 0.05"/></material>
     </visual>
   </link>
   <joint name="desk_to_left_wall" type="fixed">
     <parent link="easydesk"/><child link="left_wall"/>
-    <origin xyz="-1.5 0.0 0.75" rpy="0 0 0"/> 
+    <origin xyz="-0.6 -0.5 0.75" rpy="0 0 0"/> 
   </joint>
 
   <link name="right_wall">
-    <collision><geometry><box size="0.01 1.2 1.5"/></geometry></collision>
+    <collision><geometry><box size="0.01 2.25 1.5"/></geometry></collision>
     <visual>
-      <geometry><box size="0.01 1.2 1.5"/></geometry>
+      <geometry><box size="0.01 2.25 1.5"/></geometry>
       <material name="transparent_red"><color rgba="1 0 0 0.05"/></material>
     </visual>
   </link>
   <joint name="desk_to_right_wall" type="fixed">
     <parent link="easydesk"/><child link="right_wall"/>
-    <origin xyz="0.7 0 0.75" rpy="0 0 0"/> 
+    <origin xyz="0.7 -0.5 0.75" rpy="0 0 0"/> 
   </joint>
 
   <xacro:macro name="d435_mount" params="prefix x y z yaw">
@@ -99,8 +99,8 @@
     </joint>
   </xacro:macro> 
 
-  <xacro:d435_mount prefix="cam_left" x="0.2" y="-0.4" z="0.2" yaw="${pi/2}"/>
-  <xacro:d435_mount prefix="cam_right" x="0.6" y="0.02" z="0.6" yaw="${pi}"/>
+  <xacro:d435_mount prefix="cam_left" x="0.4" y="+0.2" z="0.3" yaw="${pi}"/>
+  <xacro:d435_mount prefix="cam_right" x="0.02" y="0.6" z="0.6" yaw="${-pi/2}"/>
   
 <xacro:ur_robot name="ur" tf_prefix="" parent="easydesk"
     joint_limits_parameters_file="$(find ur_description)/config/ur12e/joint_limits.yaml"
@@ -111,7 +111,7 @@
     safety_pos_margin="0.15"
     safety_k_position="20"
     generate_ros2_control_tag="false">
-    <origin xyz="-0.73 -0.05 -0.025" rpy="0 0 0" />
+    <origin xyz="+0.05 -0.73 -0.025" rpy="0 0 0" />
   </xacro:ur_robot>
 
   <xacro:robotiq_gripper name="robotiq_85" prefix="" parent="tool0" include_ros2_control="false">
@@ -158,14 +158,14 @@
     <joint name="shoulder_lift_joint">
       <command_interface name="position"/>
       <command_interface name="velocity"/>
-      <state_interface name="position"><param name="initial_value">-0.7854</param></state_interface>
+      <state_interface name="position"><param name="initial_value">-0.5236</param></state_interface>
       <state_interface name="velocity"/>
       <state_interface name="effort"/> 
     </joint>
     <joint name="elbow_joint">
       <command_interface name="position"/>
       <command_interface name="velocity"/>
-      <state_interface name="position"><param name="initial_value">-2.3562</param></state_interface>
+      <state_interface name="position"><param name="initial_value">-2.618</param></state_interface>
       <state_interface name="velocity"/>
       <state_interface name="effort"/> 
     </joint>
