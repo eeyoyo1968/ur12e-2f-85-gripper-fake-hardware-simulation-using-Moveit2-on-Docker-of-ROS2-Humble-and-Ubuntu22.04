@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UR12e ROS2 Node Graph</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Space+Grotesk:wght@300;400;600;700&display=swap');
+
+  :root {
+    --bg:        #0A0E14;
+    --panel:     #111820;
+    --border:    #1E2D3D;
+    --teal:      #02C39A;
+    --blue:      #028090;
+    --purple:    #8338EC;
+    --orange:    #F77F00;
+    --gold:      #F9C74F;
+    --red:       #D62828;
+    --green:     #06D6A0;
+    --text:      #CDD6E0;
+    --muted:     #4A6278;
+    --white:     #FFFFFF;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: var(--bg);
+    font-family: 'Space Grotesk', sans-serif;
+    color: var(--text);
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── HEADER ── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    z-index: 10;
+  }
+  .title-block h1 {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--white);
+    letter-spacing: 0.5px;
+  }
+  .title-block p {
+    font-size: 11px;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    margin-top: 1px;
+  }
+
+  /* ── LAYER FILTERS ── */
+  .filters {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .filter-btn {
+    padding: 4px 12px;
+    border-radius: 20px;
+    border: 1px solid;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'Space Grotesk', sans-serif;
+    letter-spacing: 0.3px;
+  }
+  .filter-btn.active { opacity: 1; }
+  .filter-btn:not(.active) { opacity: 0.35; }
+
+  /* ── CONTROLS ── */
+  .controls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .ctrl-btn {
+    background: var(--border);
+    border: none;
+    color: var(--text);
+    padding: 5px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: background 0.2s;
+  }
+  .ctrl-btn:hover { background: #2a3d50; }
+
+  /* ── MAIN CANVAS ── */
+  .canvas-wrap {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+  }
+  svg#graph {
+    width: 100%;
+    height: 100%;
+    cursor: grab;
+  }
+  svg#graph:active { cursor: grabbing; }
+
+  /* Edges */
+  .edge {
+    stroke-width: 1.5;
+    fill: none;
+    stroke-dasharray: 0;
+    transition: opacity 0.3s, stroke-width 0.2s;
+  }
+  .edge-topic  { stroke: var(--teal);   opacity: 0.35; }
+  .edge-action { stroke: var(--gold);   opacity: 0.35; }
+  .edge-param  { stroke: var(--muted);  opacity: 0.25; }
+  .edge-tf     { stroke: var(--purple); opacity: 0.30; }
+  .edge-service{ stroke: var(--orange); opacity: 0.30; }
+  .edge.highlight { opacity: 1 !important; stroke-width: 2.5 !important; }
+  .edge.dimmed    { opacity: 0.05 !important; }
+
+  .edge-label {
+    font-size: 9px;
+    fill: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    pointer-events: none;
+    transition: opacity 0.3s;
+  }
+  .edge-label.highlight { fill: var(--text); font-size: 10px; }
+
+  /* Arrowhead markers */
+  .arrow-teal   { fill: var(--teal); }
+  .arrow-gold   { fill: var(--gold); }
+  .arrow-purple { fill: var(--purple); }
+  .arrow-orange { fill: var(--orange); }
+  .arrow-muted  { fill: var(--muted); }
+
+  /* Nodes */
+  .node-group {
+    cursor: pointer;
+    transition: filter 0.2s;
+  }
+  .node-group:hover { filter: brightness(1.25); }
+  .node-group.dimmed { opacity: 0.15; pointer-events: none; }
+
+  .node-bg {
+    rx: 10; ry: 10;
+    stroke-width: 1.5;
+    transition: all 0.2s;
+  }
+  .node-group:hover .node-bg { stroke-width: 2.5; }
+
+  .node-icon {
+    font-size: 16px;
+    text-anchor: middle;
+    dominant-baseline: middle;
+    pointer-events: none;
+  }
+  .node-name {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    text-anchor: middle;
+    fill: var(--white);
+    pointer-events: none;
+  }
+  .node-sub {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 9px;
+    text-anchor: middle;
+    fill: var(--muted);
+    pointer-events: none;
+  }
+
+  /* Layer labels */
+  .layer-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    fill: var(--muted);
+    pointer-events: none;
+    opacity: 0.5;
+  }
+  .layer-band {
+    opacity: 0.03;
+  }
+
+  /* ── TOOLTIP ── */
+  #tooltip {
+    position: absolute;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    min-width: 240px;
+    max-width: 320px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s;
+    z-index: 100;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+  }
+  #tooltip.visible { opacity: 1; }
+  #tooltip h3 {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--white);
+    font-family: 'JetBrains Mono', monospace;
+    margin-bottom: 4px;
+  }
+  #tooltip .tt-type {
+    font-size: 10px;
+    color: var(--muted);
+    margin-bottom: 10px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  #tooltip .tt-section {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--teal);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+    margin-top: 8px;
+  }
+  #tooltip .tt-item {
+    font-size: 10px;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    padding: 2px 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  #tooltip .tt-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  #tooltip .tt-desc {
+    font-size: 11px;
+    color: #8899aa;
+    margin-top: 8px;
+    line-height: 1.5;
+    font-family: 'Space Grotesk', sans-serif;
+  }
+
+  /* ── LEGEND ── */
+  #legend {
+    position: absolute;
+    bottom: 16px;
+    left: 16px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    z-index: 50;
+  }
+  #legend h4 {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--muted);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .legend-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 5px;
+  }
+  .legend-line {
+    width: 28px;
+    height: 2px;
+    border-radius: 1px;
+  }
+  .legend-label {
+    font-size: 10px;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* ── INFO PANEL ── */
+  #info-panel {
+    position: absolute;
+    right: 16px;
+    top: 16px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    width: 200px;
+    z-index: 50;
+    font-size: 10px;
+  }
+  #info-panel h4 {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--muted);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 4px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .stat-val { color: var(--teal); font-weight: 700; }
+  .stat-lbl { color: var(--muted); }
+
+  /* Pulse animation for active nodes */
+  @keyframes pulse-ring {
+    0%   { r: 26; opacity: 0.6; }
+    100% { r: 38; opacity: 0; }
+  }
+  .pulse-ring { animation: pulse-ring 2s ease-out infinite; }
+
+</style>
+</head>
+<body>
+
+<header>
+  <div class="title-block">
+    <h1>UR12e Robotic Workcell — ROS2 Node Graph</h1>
+    <p>ROS2 Humble &nbsp;•&nbsp; v1.1.8_2f-85 &nbsp;•&nbsp; Click node to inspect &nbsp;•&nbsp; Drag to pan &nbsp;•&nbsp; Scroll to zoom</p>
+  </div>
+
+  <div class="filters" id="filters">
+    <button class="filter-btn active" data-layer="all"   style="border-color:#CDD6E0; color:#CDD6E0">ALL</button>
+    <button class="filter-btn active" data-layer="app"   style="border-color:#8338EC; color:#8338EC">Application</button>
+    <button class="filter-btn active" data-layer="plan"  style="border-color:#028090; color:#028090">Planning</button>
+    <button class="filter-btn active" data-layer="ctrl"  style="border-color:#02C39A; color:#02C39A">Control</button>
+    <button class="filter-btn active" data-layer="hw"    style="border-color:#F9C74F; color:#F9C74F">Hardware</button>
+    <button class="filter-btn active" data-layer="infra" style="border-color:#F77F00; color:#F77F00">Infra</button>
+  </div>
+
+  <div class="controls">
+    <button class="ctrl-btn" id="btn-reset">↺ Reset View</button>
+    <button class="ctrl-btn" id="btn-labels">Toggle Labels</button>
+  </div>
+</header>
+
+<div class="canvas-wrap">
+  <svg id="graph">
+    <defs>
+      <marker id="arr-teal"   markerWidth="8" markerHeight="6" refX="6" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" class="arrow-teal"/></marker>
+      <marker id="arr-gold"   markerWidth="8" markerHeight="6" refX="6" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" class="arrow-gold"/></marker>
+      <marker id="arr-purple" markerWidth="8" markerHeight="6" refX="6" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" class="arrow-purple"/></marker>
+      <marker id="arr-orange" markerWidth="8" markerHeight="6" refX="6" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" class="arrow-orange"/></marker>
+      <marker id="arr-muted"  markerWidth="8" markerHeight="6" refX="6" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" class="arrow-muted"/></marker>
+    </defs>
+    <g id="viewport">
+      <g id="layer-bands"></g>
+      <g id="edges"></g>
+      <g id="edge-labels"></g>
+      <g id="nodes"></g>
+    </g>
+  </svg>
+
+  <div id="tooltip"></div>
+
+  <div id="legend">
+    <h4>Connection Types</h4>
+    <div class="legend-row"><div class="legend-line" style="background:#02C39A"></div><span class="legend-label">Topic (pub/sub)</span></div>
+    <div class="legend-row"><div class="legend-line" style="background:#F9C74F"></div><span class="legend-label">Action</span></div>
+    <div class="legend-row"><div class="legend-line" style="background:#8338EC"></div><span class="legend-label">TF2 Transform</span></div>
+    <div class="legend-row"><div class="legend-line" style="background:#F77F00"></div><span class="legend-label">Service</span></div>
+    <div class="legend-row"><div class="legend-line" style="background:#4A6278"></div><span class="legend-label">Parameter</span></div>
+  </div>
+
+  <div id="info-panel">
+    <h4>Graph Stats</h4>
+    <div class="stat-row"><span class="stat-lbl">Nodes</span><span class="stat-val" id="stat-nodes">—</span></div>
+    <div class="stat-row"><span class="stat-lbl">Connections</span><span class="stat-val" id="stat-edges">—</span></div>
+    <div class="stat-row"><span class="stat-lbl">Topics</span><span class="stat-val" id="stat-topics">—</span></div>
+    <div class="stat-row"><span class="stat-lbl">Actions</span><span class="stat-val" id="stat-actions">—</span></div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// DATA: Nodes
+// ═══════════════════════════════════════════════════════════════
+const NODES = [
+  // ── APPLICATION LAYER ──
+  { id:"motion_script",   label:"motion_script",    sub:"pick_and_place.py",      layer:"app",   icon:"📝", x:400, y:60,
+    color:"#8338EC", stroke:"#A06AEC",
+    desc:"User motion scripts driving the workcell. Sends joint trajectory goals and gripper commands.",
+    pubs:["/move_group/goal","/robotiq_gripper_controller/follow_joint_trajectory/goal"],
+    subs:["/move_group/result","/joint_states","/robotiq_gripper_state"],
+    services:[], actions:["MoveGroup","FollowJointTrajectory"] },
+
+  { id:"vision_node",     label:"vision_node",       sub:"perception pipeline",   layer:"app",   icon:"👁", x:700, y:60,
+    color:"#8338EC", stroke:"#A06AEC",
+    desc:"Intel RealSense + YOLOv8 perception. Detects objects and publishes 3D poses for grasp planning.",
+    pubs:["/detected_object_pose","/camera/depth/image_rect_raw","/camera/color/image_raw"],
+    subs:["/tf","/tf_static"],
+    services:[], actions:[] },
+
+  // ── PLANNING LAYER ──
+  { id:"move_group",      label:"move_group",        sub:"MoveIt2",               layer:"plan",  icon:"🧠", x:400, y:200,
+    color:"#028090", stroke:"#02A8BE",
+    desc:"Core MoveIt2 motion planning server. Handles path planning, collision checking, IK/FK, and trajectory execution.",
+    pubs:["/move_group/status","/display_planned_path","/monitored_planning_scene","/trajectory_execution_event"],
+    subs:["/joint_states","/tf","/tf_static","/planning_scene"],
+    services:["/move_group/get_planning_scene","/check_state_validity"],
+    actions:["MoveGroup","ExecuteTrajectory"] },
+
+  { id:"planning_scene",  label:"planning_scene_monitor", sub:"collision world",  layer:"plan",  icon:"🗺", x:160, y:200,
+    color:"#028090", stroke:"#02A8BE",
+    desc:"Maintains the live collision world. Monitors robot state and environment objects for MoveIt2.",
+    pubs:["/planning_scene","/monitored_planning_scene"],
+    subs:["/joint_states","/tf","/collision_object"],
+    services:[], actions:[] },
+
+  { id:"rviz2",           label:"rviz2",             sub:"visualisation",         layer:"plan",  icon:"🖥", x:700, y:200,
+    color:"#028090", stroke:"#02A8BE",
+    desc:"3D visualisation tool. Displays robot model, planning scene, camera feeds, and planned trajectories.",
+    pubs:["/move_group/goal","/planning_scene"],
+    subs:["/display_planned_path","/joint_states","/tf","/monitored_planning_scene","/robotiq_gripper_state"],
+    services:[], actions:["MoveGroup"] },
+
+  // ── CONTROL LAYER ──
+  { id:"controller_mgr",  label:"controller_manager", sub:"ros2_control",         layer:"ctrl",  icon:"⚙", x:300, y:360,
+    color:"#02C39A", stroke:"#05E0B0",
+    desc:"ros2_control controller manager. Loads, activates, and manages all hardware controllers.",
+    pubs:["/controller_manager/state"],
+    subs:[],
+    services:["/controller_manager/load_controller","/controller_manager/switch_controller","/controller_manager/list_controllers"],
+    actions:[] },
+
+  { id:"joint_state_bc",  label:"joint_state_broadcaster", sub:"state publisher", layer:"ctrl",  icon:"📡", x:120, y:360,
+    color:"#02C39A", stroke:"#05E0B0",
+    desc:"Reads joint positions from hardware interface and publishes them continuously at 500Hz.",
+    pubs:["/joint_states","/dynamic_joint_states"],
+    subs:[],
+    services:[], actions:[] },
+
+  { id:"scaled_jtc",      label:"scaled_joint_traj_ctrl", sub:"arm controller",   layer:"ctrl",  icon:"🎯", x:480, y:360,
+    color:"#02C39A", stroke:"#05E0B0",
+    desc:"Scaled Joint Trajectory Controller. Executes arm trajectories with speed scaling support.",
+    pubs:["/joint_trajectory_controller/state"],
+    subs:["/joint_states"],
+    services:[], actions:["FollowJointTrajectory"] },
+
+  { id:"action_server",   label:"robotiq_ursim_bridge", sub:"action server bridge", layer:"ctrl", icon:"⚡", x:660, y:360,
+    color:"#F9C74F", stroke:"#FBDB7F",
+    desc:"KEY INNOVATION: Action Server Bridge. Translates ROS2 FollowJointTrajectory actions into URScript commands sent to the UR controller.",
+    pubs:["/robotiq_gripper_state"],
+    subs:[],
+    services:[], actions:["FollowJointTrajectory (gripper)"] },
+
+  { id:"robot_state_pub", label:"robot_state_publisher", sub:"URDF → TF",        layer:"ctrl",  icon:"🔗", x:870, y:360,
+    color:"#02C39A", stroke:"#05E0B0",
+    desc:"Reads URDF and joint states, publishes all TF2 transforms for every link in the robot.",
+    pubs:["/tf","/tf_static","/robot_description"],
+    subs:["/joint_states"],
+    services:[], actions:[] },
+
+  // ── HARDWARE LAYER ──
+  { id:"ur_hw",           label:"URPositionHardwareInterface", sub:"UR12e driver", layer:"hw",  icon:"🤖", x:300, y:530,
+    color:"#F9C74F", stroke:"#FBDB7F",
+    desc:"UR Robot Hardware Interface. Communicates with UR12e via RTDE (500Hz) and URScript. Reads joint states, sends commands.",
+    pubs:[],
+    subs:[],
+    services:[], actions:[], extra:["RTDE @ 500Hz → robot_ip:29999","URScript → robot_ip:30002","Dashboard → robot_ip:29999"] },
+
+  { id:"robotiq_hw",      label:"RobotiqGripperHardwareInterface", sub:"fake / bridge", layer:"hw", icon:"✋", x:600, y:530,
+    color:"#F9C74F", stroke:"#FBDB7F",
+    desc:"Gripper hardware interface. In simulation: mock_components/GenericSystem. In production: Action Server routes through UR controller URCap.",
+    pubs:[],
+    subs:[],
+    services:[], actions:[], extra:["Fake: mock_components/GenericSystem","Real: via Action Server → URCap"] },
+
+  { id:"ur12e_robot",     label:"UR12e Physical Robot", sub:"PolyScope X",       layer:"hw",  icon:"🏭", x:300, y:670,
+    color:"#D62828", stroke:"#F05050",
+    desc:"Real UR12e robot arm. Runs PolyScope X. Receives External Control commands via RTDE. Press Play on teach pendant to start.",
+    pubs:[],
+    subs:[],
+    services:[], actions:[], extra:["IP: 192.168.1.100","External Control URCap","PolyScope X"] },
+
+  { id:"robotiq_gripper", label:"Robotiq 2F-85",        sub:"physical gripper",  layer:"hw",  icon:"🤏", x:600, y:670,
+    color:"#D62828", stroke:"#F05050",
+    desc:"Physical Robotiq 2F-85 adaptive gripper. Controlled via Robotiq URCap installed on UR12e controller.",
+    pubs:[],
+    subs:[],
+    services:[], actions:[], extra:["Tool Communication Interface","Slave Address: 9","Robotiq URCap"] },
+
+  // ── INFRA ──
+  { id:"tf2",             label:"tf2_ros",            sub:"transform tree",       layer:"infra", icon:"🌐", x:870, y:200,
+    color:"#F77F00", stroke:"#FBAA40",
+    desc:"TF2 transform broadcaster/listener. Maintains coordinate frame tree for all robot links and cameras.",
+    pubs:["/tf","/tf_static"],
+    subs:["/tf","/tf_static"],
+    services:[], actions:[] },
+
+  { id:"param_server",    label:"param_server",       sub:"kinematics + limits",  layer:"infra", icon:"📋", x:1020, y:360,
+    color:"#F77F00", stroke:"#FBAA40",
+    desc:"ROS2 parameter server. Stores robot_description URDF, kinematics YAML, joint limits, and MoveIt2 configuration.",
+    pubs:[],
+    subs:[],
+    services:["/get_parameters","/set_parameters"],
+    actions:[], extra:["robot_description","kinematics.yaml","joint_limits.yaml","ompl_planning.yaml"] },
+
+  { id:"ursim",           label:"URSim",              sub:"Docker container",     layer:"infra", icon:"🐳", x:120, y:530,
+    color:"#F77F00", stroke:"#FBAA40",
+    desc:"URSim simulation container. Runs PolyScope 5.14 in Docker. Accepts External Control URCap connections for simulation.",
+    pubs:[],
+    subs:[],
+    services:[], actions:[], extra:["universalrobots/ursim_e-series:5.14.0","Port 6080 (VNC)","Port 29999/30002"] },
+];
+
+// ═══════════════════════════════════════════════════════════════
+// DATA: Edges
+// ═══════════════════════════════════════════════════════════════
+const EDGES = [
+  // Application → Planning
+  { from:"motion_script",  to:"move_group",      type:"action",  label:"MoveGroup action" },
+  { from:"motion_script",  to:"action_server",   type:"action",  label:"FollowJointTraj (gripper)" },
+  { from:"vision_node",    to:"planning_scene",  type:"topic",   label:"/detected_object_pose" },
+  { from:"rviz2",          to:"move_group",      type:"action",  label:"MoveGroup goal" },
+
+  // Planning ↔ Control
+  { from:"move_group",     to:"scaled_jtc",      type:"action",  label:"ExecuteTrajectory" },
+  { from:"move_group",     to:"planning_scene",  type:"topic",   label:"/planning_scene" },
+  { from:"planning_scene", to:"move_group",      type:"topic",   label:"/monitored_planning_scene" },
+  { from:"move_group",     to:"rviz2",           type:"topic",   label:"/display_planned_path" },
+
+  // Control internal
+  { from:"controller_mgr", to:"scaled_jtc",      type:"service", label:"load/activate" },
+  { from:"controller_mgr", to:"joint_state_bc",  type:"service", label:"load/activate" },
+  { from:"joint_state_bc", to:"move_group",      type:"topic",   label:"/joint_states" },
+  { from:"joint_state_bc", to:"robot_state_pub", type:"topic",   label:"/joint_states" },
+  { from:"joint_state_bc", to:"rviz2",           type:"topic",   label:"/joint_states" },
+  { from:"robot_state_pub",to:"tf2",             type:"tf",      label:"/tf + /tf_static" },
+  { from:"tf2",            to:"move_group",      type:"tf",      label:"/tf" },
+  { from:"tf2",            to:"vision_node",     type:"tf",      label:"/tf" },
+  { from:"action_server",  to:"ur_hw",           type:"topic",   label:"URScript cmd" },
+  { from:"action_server",  to:"rviz2",           type:"topic",   label:"/robotiq_gripper_state" },
+
+  // Control → Hardware
+  { from:"scaled_jtc",     to:"ur_hw",           type:"action",  label:"FollowJointTraj" },
+  { from:"ur_hw",          to:"joint_state_bc",  type:"topic",   label:"joint positions" },
+  { from:"robotiq_hw",     to:"joint_state_bc",  type:"topic",   label:"gripper position" },
+
+  // Hardware → Physical
+  { from:"ur_hw",          to:"ur12e_robot",     type:"topic",   label:"RTDE 500Hz" },
+  { from:"ur12e_robot",    to:"ur_hw",           type:"topic",   label:"joint feedback" },
+  { from:"action_server",  to:"robotiq_gripper", type:"action",  label:"URScript via UR ctrl" },
+  { from:"robotiq_hw",     to:"robotiq_gripper", type:"topic",   label:"mock / bridge" },
+
+  // Infra
+  { from:"param_server",   to:"move_group",      type:"param",   label:"kinematics + limits" },
+  { from:"param_server",   to:"robot_state_pub", type:"param",   label:"robot_description" },
+  { from:"param_server",   to:"controller_mgr",  type:"param",   label:"controller config" },
+  { from:"ursim",          to:"ur_hw",           type:"topic",   label:"RTDE (sim mode)" },
+
+  // URSim sim mode connections
+  { from:"ur_hw",          to:"ursim",           type:"topic",   label:"URScript (sim)" },
+];
+
+// ═══════════════════════════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════════════════════════
+const W = 1160, H = 800;
+const svg = document.getElementById('graph');
+const viewport = document.getElementById('viewport');
+const edgesG = document.getElementById('edges');
+const edgeLabG = document.getElementById('edge-labels');
+const nodesG = document.getElementById('nodes');
+const bandsG = document.getElementById('layer-bands');
+const tooltip = document.getElementById('tooltip');
+
+let transform = { x: 20, y: 20, scale: 1 };
+let isDragging = false, lastX, lastY;
+let activeFilters = new Set(['all','app','plan','ctrl','hw','infra']);
+let showLabels = true;
+let selectedNode = null;
+
+// Layer band definitions
+const LAYERS = [
+  { id:'app',   label:'APPLICATION LAYER',  y:20,  h:120, color:'#8338EC' },
+  { id:'plan',  label:'PLANNING LAYER',     y:155, h:130, color:'#028090' },
+  { id:'ctrl',  label:'CONTROL LAYER',      y:300, h:140, color:'#02C39A' },
+  { id:'hw',    label:'HARDWARE LAYER',     y:460, h:250, color:'#F9C74F' },
+  { id:'infra', label:'INFRA / SERVICES',   y:155, h:285, color:'#F77F00' },
+];
+
+// Draw layer bands
+LAYERS.forEach(l => {
+  const rect = document.createElementNS('http://www.w3.org/2000/svg','rect');
+  const isRight = l.id === 'infra';
+  rect.setAttribute('x', isRight ? 830 : 0);
+  rect.setAttribute('y', l.y);
+  rect.setAttribute('width', isRight ? 300 : 820);
+  rect.setAttribute('height', l.h);
+  rect.setAttribute('fill', l.color);
+  rect.setAttribute('class','layer-band');
+  rect.setAttribute('rx','4');
+  bandsG.appendChild(rect);
+
+  const txt = document.createElementNS('http://www.w3.org/2000/svg','text');
+  txt.setAttribute('x', isRight ? 845 : 8);
+  txt.setAttribute('y', l.y + 14);
+  txt.setAttribute('class','layer-label');
+  txt.setAttribute('fill', l.color);
+  txt.setAttribute('opacity','0.6');
+  txt.textContent = l.label;
+  bandsG.appendChild(txt);
+});
+
+// Type → CSS class + arrow marker
+function edgeStyle(type) {
+  const map = {
+    topic:   { cls:'edge-topic',   arr:'arr-teal' },
+    action:  { cls:'edge-action',  arr:'arr-gold' },
+    tf:      { cls:'edge-tf',      arr:'arr-purple' },
+    service: { cls:'edge-service', arr:'arr-orange' },
+    param:   { cls:'edge-param',   arr:'arr-muted' },
+  };
+  return map[type] || map.topic;
+}
+
+// Draw edges
+EDGES.forEach((e, idx) => {
+  const src = NODES.find(n=>n.id===e.from);
+  const dst = NODES.find(n=>n.id===e.to);
+  if (!src||!dst) return;
+
+  const dx = dst.x - src.x, dy = dst.y - src.y;
+  const dist = Math.sqrt(dx*dx+dy*dy);
+  const mx = (src.x+dst.x)/2, my = (src.y+dst.y)/2;
+  // Curve offset perpendicular
+  const curveOff = 28;
+  const cpx = mx - (dy/dist)*curveOff;
+  const cpy = my + (dx/dist)*curveOff;
+
+  const style = edgeStyle(e.type);
+  const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+  path.setAttribute('d',`M ${src.x} ${src.y} Q ${cpx} ${cpy} ${dst.x} ${dst.y}`);
+  path.setAttribute('class',`edge ${style.cls}`);
+  path.setAttribute('marker-end',`url(#${style.arr})`);
+  path.setAttribute('data-from', e.from);
+  path.setAttribute('data-to', e.to);
+  path.setAttribute('data-type', e.type);
+  path.setAttribute('id',`edge-${idx}`);
+  edgesG.appendChild(path);
+
+  // Edge label
+  if (showLabels) {
+    const txt = document.createElementNS('http://www.w3.org/2000/svg','text');
+    txt.setAttribute('x', cpx);
+    txt.setAttribute('y', cpy - 4);
+    txt.setAttribute('class','edge-label');
+    txt.setAttribute('data-edge-idx', idx);
+    txt.textContent = e.label;
+    edgeLabG.appendChild(txt);
+  }
+});
+
+// Draw nodes
+NODES.forEach(n => {
+  const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+  g.setAttribute('class','node-group');
+  g.setAttribute('transform',`translate(${n.x},${n.y})`);
+  g.setAttribute('data-id', n.id);
+  g.setAttribute('data-layer', n.layer);
+
+  // Pulse ring for hw/action_server nodes
+  if (['action_server','ur12e_robot','robotiq_gripper'].includes(n.id)) {
+    const ring = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    ring.setAttribute('r','26');
+    ring.setAttribute('fill','none');
+    ring.setAttribute('stroke', n.color);
+    ring.setAttribute('stroke-width','1');
+    ring.setAttribute('class','pulse-ring');
+    g.appendChild(ring);
+  }
+
+  // Background rect
+  const rect = document.createElementNS('http://www.w3.org/2000/svg','rect');
+  rect.setAttribute('x','-52'); rect.setAttribute('y','-28');
+  rect.setAttribute('width','104'); rect.setAttribute('height','56');
+  rect.setAttribute('fill', n.color + '22');
+  rect.setAttribute('stroke', n.stroke);
+  rect.setAttribute('class','node-bg');
+  rect.setAttribute('rx','10');
+  g.appendChild(rect);
+
+  // Icon
+  const icon = document.createElementNS('http://www.w3.org/2000/svg','text');
+  icon.setAttribute('x','0'); icon.setAttribute('y','-8');
+  icon.setAttribute('class','node-icon');
+  icon.textContent = n.icon;
+  g.appendChild(icon);
+
+  // Label
+  const lbl = document.createElementNS('http://www.w3.org/2000/svg','text');
+  lbl.setAttribute('x','0'); lbl.setAttribute('y','8');
+  lbl.setAttribute('class','node-name');
+  // Truncate long names
+  const short = n.label.length > 18 ? n.label.slice(0,16)+'…' : n.label;
+  lbl.textContent = short;
+  g.appendChild(lbl);
+
+  // Sub
+  const sub = document.createElementNS('http://www.w3.org/2000/svg','text');
+  sub.setAttribute('x','0'); sub.setAttribute('y','20');
+  sub.setAttribute('class','node-sub');
+  sub.textContent = n.sub;
+  g.appendChild(sub);
+
+  g.addEventListener('click', (ev) => { ev.stopPropagation(); onNodeClick(n, ev); });
+  g.addEventListener('mousemove', (ev) => { onNodeHover(n, ev); });
+  g.addEventListener('mouseleave', () => { hideTooltip(); });
+
+  nodesG.appendChild(g);
+});
+
+// Stats
+document.getElementById('stat-nodes').textContent = NODES.length;
+document.getElementById('stat-edges').textContent = EDGES.length;
+document.getElementById('stat-topics').textContent = EDGES.filter(e=>e.type==='topic').length;
+document.getElementById('stat-actions').textContent = EDGES.filter(e=>e.type==='action').length;
+
+// ─ Tooltip ─
+function showTooltip(node, evt) {
+  const tt = tooltip;
+  let html = `<h3>${node.label}</h3><div class="tt-type">${node.sub} &nbsp;•&nbsp; ${node.layer.toUpperCase()}</div>`;
+  html += `<div class="tt-desc">${node.desc}</div>`;
+
+  if (node.pubs && node.pubs.length) {
+    html += `<div class="tt-section">PUBLISHES</div>`;
+    node.pubs.forEach(p => html += `<div class="tt-item"><div class="tt-dot" style="background:#02C39A"></div>${p}</div>`);
+  }
+  if (node.subs && node.subs.length) {
+    html += `<div class="tt-section">SUBSCRIBES</div>`;
+    node.subs.forEach(s => html += `<div class="tt-item"><div class="tt-dot" style="background:#028090"></div>${s}</div>`);
+  }
+  if (node.actions && node.actions.length) {
+    html += `<div class="tt-section">ACTIONS</div>`;
+    node.actions.forEach(a => html += `<div class="tt-item"><div class="tt-dot" style="background:#F9C74F"></div>${a}</div>`);
+  }
+  if (node.services && node.services.length) {
+    html += `<div class="tt-section">SERVICES</div>`;
+    node.services.forEach(s => html += `<div class="tt-item"><div class="tt-dot" style="background:#F77F00"></div>${s}</div>`);
+  }
+  if (node.extra && node.extra.length) {
+    html += `<div class="tt-section">DETAILS</div>`;
+    node.extra.forEach(e => html += `<div class="tt-item"><div class="tt-dot" style="background:#4A6278"></div>${e}</div>`);
+  }
+
+  tt.innerHTML = html;
+  positionTooltip(evt);
+  tt.classList.add('visible');
+}
+function positionTooltip(evt) {
+  const pad = 16;
+  const tw = tooltip.offsetWidth || 280;
+  const th = tooltip.offsetHeight || 200;
+  const vw = window.innerWidth, vh = window.innerHeight;
+  let x = evt.clientX + pad, y = evt.clientY + pad;
+  if (x + tw > vw - 10) x = evt.clientX - tw - pad;
+  if (y + th > vh - 10) y = evt.clientY - th - pad;
+  tooltip.style.left = x + 'px';
+  tooltip.style.top  = y + 'px';
+}
+function hideTooltip() { tooltip.classList.remove('visible'); }
+
+function onNodeHover(node, evt) { showTooltip(node, evt); }
+
+function onNodeClick(node, evt) {
+  showTooltip(node, evt);
+  // Highlight connected edges
+  if (selectedNode === node.id) {
+    clearHighlight();
+    selectedNode = null;
+    return;
+  }
+  selectedNode = node.id;
+  document.querySelectorAll('.edge').forEach(el => {
+    const from = el.getAttribute('data-from');
+    const to   = el.getAttribute('data-to');
+    if (from === node.id || to === node.id) {
+      el.classList.add('highlight');
+      el.classList.remove('dimmed');
+    } else {
+      el.classList.add('dimmed');
+      el.classList.remove('highlight');
+    }
+  });
+  document.querySelectorAll('.node-group').forEach(el => {
+    const nid = el.getAttribute('data-id');
+    const connected = EDGES.some(e => (e.from===node.id && e.to===nid)||(e.to===node.id && e.from===nid));
+    if (nid === node.id || connected) {
+      el.classList.remove('dimmed');
+    } else {
+      el.classList.add('dimmed');
+    }
+  });
+}
+
+function clearHighlight() {
+  document.querySelectorAll('.edge').forEach(el => {
+    el.classList.remove('highlight','dimmed');
+  });
+  document.querySelectorAll('.node-group').forEach(el => {
+    el.classList.remove('dimmed');
+  });
+}
+
+svg.addEventListener('click', () => { clearHighlight(); selectedNode = null; });
+
+// ─ Pan & Zoom ─
+function applyTransform() {
+  viewport.setAttribute('transform',`translate(${transform.x},${transform.y}) scale(${transform.scale})`);
+}
+
+svg.addEventListener('mousedown', e => {
+  if (e.target.closest('.node-group')) return;
+  isDragging = true;
+  lastX = e.clientX; lastY = e.clientY;
+});
+window.addEventListener('mousemove', e => {
+  if (!isDragging) return;
+  transform.x += e.clientX - lastX;
+  transform.y += e.clientY - lastY;
+  lastX = e.clientX; lastY = e.clientY;
+  applyTransform();
+});
+window.addEventListener('mouseup', () => { isDragging = false; });
+
+svg.addEventListener('wheel', e => {
+  e.preventDefault();
+  const delta = e.deltaY > 0 ? 0.9 : 1.1;
+  const rect = svg.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  transform.x = mx - (mx - transform.x) * delta;
+  transform.y = my - (my - transform.y) * delta;
+  transform.scale = Math.max(0.3, Math.min(3, transform.scale * delta));
+  applyTransform();
+}, { passive:false });
+
+// ─ Filter buttons ─
+document.querySelectorAll('.filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const layer = btn.getAttribute('data-layer');
+    if (layer === 'all') {
+      const allOn = [...document.querySelectorAll('.filter-btn:not([data-layer="all"])')].every(b => b.classList.contains('active'));
+      document.querySelectorAll('.filter-btn').forEach(b => {
+        if (allOn) { b.classList.remove('active'); }
+        else { b.classList.add('active'); }
+      });
+      if (allOn) activeFilters.clear();
+      else activeFilters = new Set(['all','app','plan','ctrl','hw','infra']);
+    } else {
+      btn.classList.toggle('active');
+      if (btn.classList.contains('active')) activeFilters.add(layer);
+      else activeFilters.delete(layer);
+    }
+    applyLayerFilter();
+  });
+});
+
+function applyLayerFilter() {
+  document.querySelectorAll('.node-group').forEach(el => {
+    const layer = el.getAttribute('data-layer');
+    if (activeFilters.has(layer) || activeFilters.has('all')) {
+      el.style.display = '';
+    } else {
+      el.style.display = 'none';
+    }
+  });
+  document.querySelectorAll('.edge').forEach(el => {
+    const from = el.getAttribute('data-from');
+    const to   = el.getAttribute('data-to');
+    const fn = NODES.find(n=>n.id===from);
+    const tn = NODES.find(n=>n.id===to);
+    if (fn && tn && (activeFilters.has(fn.layer)||activeFilters.has('all')) && (activeFilters.has(tn.layer)||activeFilters.has('all'))) {
+      el.style.display = '';
+    } else {
+      el.style.display = 'none';
+    }
+  });
+}
+
+// ─ Controls ─
+document.getElementById('btn-reset').addEventListener('click', () => {
+  transform = { x:20, y:20, scale:1 };
+  applyTransform();
+});
+
+document.getElementById('btn-labels').addEventListener('click', () => {
+  showLabels = !showLabels;
+  edgeLabG.style.display = showLabels ? '' : 'none';
+});
+
+applyTransform();
+</script>
+</body>
+</html>
