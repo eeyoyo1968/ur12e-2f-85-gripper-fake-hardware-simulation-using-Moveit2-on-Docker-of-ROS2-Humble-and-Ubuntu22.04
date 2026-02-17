@@ -64,14 +64,12 @@ def generate_launch_description():
     controllers_yaml = os.path.join(get_package_share_directory(description_pkg), 'config', 'ur_controllers.yaml')
     rviz_config_file = os.path.join(get_package_share_directory(description_pkg), 'rviz', 'my_robot_view.rviz')
 
-    # 4. MoveIt Controller Config
-    # NOTE: LaunchConfiguration is a substitution proxy — comparing it with == in
-    # plain Python always returns False, so the original if/else was silently broken:
-    # trajectory_controller_name was ALWAYS "scaled_joint_trajectory_controller".
-    # Fix: declare both arm controllers in the MoveIt dict. Only one will actually
-    # be active at runtime (the spawner IfCondition/UnlessCondition handles that).
-    # MoveIt connects to whichever one responds. robotiq_gripper_controller is
-    # always spawned so RViz always receives gripper joint states for visualisation.
+    # 4. MoveIt Controller Config (Dynamic based on hardware)
+    # NOTE: LaunchConfiguration objects are substitution proxies — they cannot
+    # be compared with == at Python parse time. The if/else below was silently
+    # broken: trajectory_controller_name was always "scaled_joint_trajectory_controller".
+    # Fix: declare both controller configs and let MoveIt list both; the spawner
+    # conditions (IfCondition / UnlessCondition) below ensure only one is active.
     moveit_controllers = {
         'moveit_simple_controller_manager': {
             'controller_names': [
@@ -165,7 +163,16 @@ def generate_launch_description():
             condition=UnlessCondition(use_fake_hardware_config)
         ),
 
-        Node(package='controller_manager', executable='spawner', arguments=['robotiq_gripper_controller']),
+        # FIX: Only spawn robotiq_gripper_controller in fake hardware (pure sim) mode.
+        # When use_fake_hardware=false the robotiq_ursim_bridge.py action server
+        # provides the /robotiq_gripper_controller/follow_joint_trajectory interface
+        # instead. Spawning the controller AND running the bridge causes a double-spawn.
+        Node(
+            package='controller_manager',
+            executable='spawner',
+            arguments=['robotiq_gripper_controller'],
+            condition=IfCondition(use_fake_hardware_config)
+        ),
 
         TimerAction(period=5.0, actions=[
             Node(

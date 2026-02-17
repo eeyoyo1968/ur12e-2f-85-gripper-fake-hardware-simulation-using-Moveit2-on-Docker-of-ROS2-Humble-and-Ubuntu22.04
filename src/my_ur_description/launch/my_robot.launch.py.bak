@@ -64,34 +64,22 @@ def generate_launch_description():
     controllers_yaml = os.path.join(get_package_share_directory(description_pkg), 'config', 'ur_controllers.yaml')
     rviz_config_file = os.path.join(get_package_share_directory(description_pkg), 'rviz', 'my_robot_view.rviz')
 
-    # 4. MoveIt Controller Config
-    # NOTE: LaunchConfiguration is a substitution proxy — comparing it with == in
-    # plain Python always returns False, so the original if/else was silently broken:
-    # trajectory_controller_name was ALWAYS "scaled_joint_trajectory_controller".
-    # Fix: declare both arm controllers in the MoveIt dict. Only one will actually
-    # be active at runtime (the spawner IfCondition/UnlessCondition handles that).
-    # MoveIt connects to whichever one responds. robotiq_gripper_controller is
-    # always spawned so RViz always receives gripper joint states for visualisation.
+    # 4. MoveIt Controller Config (Dynamic based on hardware)
+    # Define which controller MoveIt should use
+    trajectory_controller_name = "scaled_joint_trajectory_controller"
+    if use_fake_hardware_config == "true":
+        trajectory_controller_name = "joint_trajectory_controller"
+
     moveit_controllers = {
         'moveit_simple_controller_manager': {
-            'controller_names': [
-                'scaled_joint_trajectory_controller',
-                'joint_trajectory_controller',
-                'robotiq_gripper_controller',
-            ],
-            'scaled_joint_trajectory_controller': {
+            # ONLY include the controller that is actually spawned
+            'controller_names': [trajectory_controller_name, 'robotiq_gripper_controller'],
+            
+            trajectory_controller_name: {
                 'type': 'FollowJointTrajectory',
                 'action_ns': 'follow_joint_trajectory',
                 'default': True,
-                'joints': ['shoulder_pan_joint', 'shoulder_lift_joint', 'elbow_joint',
-                           'wrist_1_joint', 'wrist_2_joint', 'wrist_3_joint'],
-            },
-            'joint_trajectory_controller': {
-                'type': 'FollowJointTrajectory',
-                'action_ns': 'follow_joint_trajectory',
-                'default': False,
-                'joints': ['shoulder_pan_joint', 'shoulder_lift_joint', 'elbow_joint',
-                           'wrist_1_joint', 'wrist_2_joint', 'wrist_3_joint'],
+                'joints': ['shoulder_pan_joint', 'shoulder_lift_joint', 'elbow_joint', 'wrist_1_joint', 'wrist_2_joint', 'wrist_3_joint'],
             },
             'robotiq_gripper_controller': {
                 'type': 'FollowJointTrajectory',
