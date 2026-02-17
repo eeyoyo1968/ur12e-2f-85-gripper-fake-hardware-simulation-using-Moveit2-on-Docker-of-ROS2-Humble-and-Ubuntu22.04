@@ -21,6 +21,7 @@ install(DIRECTORY
 # Install Python scripts as executables
 # This makes them available via 'ros2 run my_ur_description <script_name>'
 install(PROGRAMS
+  scripts/robotiq_real_gripper_server.py
   scripts/robotiq_ursim_bridge.py
   scripts/test_move_xyz_theta_noflip_gmove.py
   DESTINATION lib/${PROJECT_NAME}
