@@ -24,6 +24,7 @@ install(PROGRAMS
   scripts/robotiq_real_gripper_server.py
   scripts/robotiq_ursim_bridge.py
   scripts/test_move_xyz_theta_noflip_gmove.py
+  scripts/robotiq_polyscope_x_gripper_server.py 
   DESTINATION lib/${PROJECT_NAME}
 )
 
