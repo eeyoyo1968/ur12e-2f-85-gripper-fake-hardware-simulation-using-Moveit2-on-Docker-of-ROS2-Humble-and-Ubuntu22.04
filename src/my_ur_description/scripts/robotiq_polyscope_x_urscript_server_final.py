@@ -163,16 +163,33 @@ rq_move_gripper()
 
     def _send_urscript(self, script: str) -> bool:
         """Send URScript to port 30002"""
+    
+        # DEBUG: Print what we're sending
+        print("="*60)
+        print("SENDING URSCRIPT:")
+        print(script)
+        print("="*60)
+    
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.settimeout(3.0)
+        
+            print(f"Connecting to {self.robot_ip}:{self.script_port}...")
             sock.connect((self.robot_ip, self.script_port))
+            print("Connected!")
+        
             sock.sendall(script.encode('utf-8'))
+            print("Script sent!")
+        
             sock.close()
+            print("Socket closed.")
             return True
         except Exception as e:
             self.get_logger().error(f"URScript socket error: {e}")
+            print(f"ERROR: {e}")
             return False
+
+
 
     def _send_ros2control_goal(self, position_rad: float):
         """Mirror goal to ros2_control for RViz sync"""
