@@ -1,0 +1,52 @@
+def gripper_test():
+  # Robotiq Library (minimal version)
+  ACT = 1
+  GTO = 2
+  POS = 10
+  STA = 8
+  OBJ = 7
+  PRE = 11
+
+  def rq_init_connection(gripper_sid=1, gripper_socket="1"):
+      socket_open("127.0.0.1",63352, gripper_socket)
+      socket_set_var("SID", gripper_sid, gripper_socket)
+      ack = socket_read_byte_list(3, gripper_socket)
+  end
+
+  def rq_set_var(var_name, var_value, gripper_socket="1"):
+      sync()
+      if (var_name == ACT):
+          socket_set_var("ACT", var_value, gripper_socket)
+      elif (var_name == GTO):
+          socket_set_var("GTO", var_value, gripper_socket)
+      elif (var_name == POS):
+          socket_set_var("POS", var_value, gripper_socket)
+      end
+      sync()
+      ack = socket_read_byte_list(3, gripper_socket)
+  end
+
+  def rq_activate(gripper_socket="1"):
+      rq_set_var(ACT,1, gripper_socket)
+  end
+
+  def rq_move(pos, gripper_socket="1"):
+      rq_set_var(GTO,0, gripper_socket)
+      rq_set_var(POS, pos, gripper_socket)
+      sleep(0.1)
+      rq_set_var(GTO,1, gripper_socket)
+  end
+
+  # Initialize and test
+  rq_init_connection(1, "1")
+  sleep(0.5)
+  rq_activate("1")
+  sleep(2)
+  rq_move(0, "1")
+  sleep(3)
+  rq_move(255, "1")
+  sleep(3)
+  rq_move(127, "1")
+end
+
+gripper_test()
