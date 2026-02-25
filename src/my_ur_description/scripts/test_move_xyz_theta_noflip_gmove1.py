@@ -25,6 +25,8 @@ from shape_msgs.msg import SolidPrimitive
 from moveit_msgs.srv import GetPositionIK
 from moveit_msgs.msg import PositionIKRequest
 
+from std_msgs.msg import String
+
 class UR12eController(Node):
     def __init__(self):
         super().__init__('ur12e_controller')
@@ -42,6 +44,9 @@ class UR12eController(Node):
             '/joint_states',
             self.joint_state_callback,
             10)
+        
+        # Add a publisher for the URScript interface
+        self.script_pub = self.create_publisher(String, '/ur_script_interface/script_command', 10)
 
         self.get_logger().info("Connecting to controllers...")
         self._arm_client.wait_for_server()
@@ -60,6 +65,18 @@ class UR12eController(Node):
         if joint_name in msg.name:
             idx = msg.name.index(joint_name)
             self.current_gripper_pos = msg.position[idx]
+    def gripper_move_wrist(self, pos_0_to_255):
+        """
+        Controls the 2F-85 through the UR wrist pins.
+        pos_0_to_255: 0 is fully open, 255 is fully closed.
+        """
+        # This script assumes you have initialized tool communication
+        # and that the Robotiq URCap logic is available to the controller.
+        script_msg = String()
+        script_msg.data = f"rq_move_and_wait({int(pos_0_to_255)})\n"
+        self.script_pub.publish(script_msg)
+        self.get_logger().info(f"Sent wrist-gripper command: {pos_0_to_255}")
+        time.sleep(1.5) # Wait for hardware execution
 
     def gripper_move(self, pos):
         """Moves the gripper and waits for the physical hardware result."""
@@ -550,11 +567,16 @@ def main():
     bot.jmove(home)
 
     # transform from the table_world_frame to the robot baselink frame
-    xbase=-0.05-(-0.014)
-    ybase=1.13+0.15+(-0.401)
+    #xbase=-0.05-(-0.188)
+    xbase=-0.03-(-0.097)
+    #ybase=1.13+0.15+(0.375)
+    ybase=1.13+0.15-(0.519)
+    zbase=0.24-0.04+(0.039)
+
     bot.move_xyz_no_flip(xbase, ybase, 0.5)
     time.sleep(2)
-    bot.move_xyz_no_flip(xbase, ybase, 0.24)
+    #bot.move_xyz_no_flip(xbase, ybase, 0.24)
+    bot.move_xyz_no_flip(xbase, ybase, zbase)
     time.sleep(2)
     bot.move_xyz_no_flip(xbase, ybase, 0.5)
     time.sleep(2)

@@ -16,7 +16,6 @@ def load_yaml(package_name, file_path):
         value = loader.construct_scalar(node)
         return math.radians(float(value))
 
-    # Add the constructor to both SafeLoader and Loader to be safe
     yaml.SafeLoader.add_constructor('!degrees', degrees_constructor)
 
     try:
@@ -28,19 +27,22 @@ def load_yaml(package_name, file_path):
 def generate_launch_description():
     description_pkg = "my_ur_description"
 
-    # 1. Declare Launch Arguments
-    # We use these variables later in the Condition objects
+    # 1. Declare Launch Arguments (This fixes your "does not exist" error)
     use_fake_hardware_config = LaunchConfiguration("use_fake_hardware")
     robot_ip_config = LaunchConfiguration("robot_ip")
+    reverse_ip_config = LaunchConfiguration("reverse_ip")
+    kinematics_params_file_config = LaunchConfiguration("kinematics_params_file")
 
-    use_fake_hardware_arg = DeclareLaunchArgument(
-        "use_fake_hardware", default_value="true"
-    )
-    robot_ip_arg = DeclareLaunchArgument(
-        "robot_ip", default_value="192.168.1.100"
+    # The actual Argument declarations
+    use_fake_hardware_arg = DeclareLaunchArgument("use_fake_hardware", default_value="true")
+    robot_ip_arg = DeclareLaunchArgument("robot_ip", default_value="192.168.2.2")
+    reverse_ip_arg = DeclareLaunchArgument("reverse_ip", default_value="192.168.2.1")
+    kinematics_params_file_arg = DeclareLaunchArgument(
+        "kinematics_params_file", 
+        default_value=os.path.join(get_package_share_directory("ur_description"), "config", "ur12e", "default_kinematics.yaml")
     )
 
-    # 2. Robot Description (XACRO)
+    # 2. Robot Description (XACRO) - Passing all 4 required parameters
     xacro_file = PathJoinSubstitution([get_package_share_directory(description_pkg), 'urdf', 'ur_system.xacro'])
     
     robot_description_content = Command(
@@ -49,6 +51,8 @@ def generate_launch_description():
             " ", xacro_file,
             " ", "use_fake_hardware:=", use_fake_hardware_config,
             " ", "robot_ip:=", robot_ip_config,
+            " ", "reverse_ip:=", reverse_ip_config,
+            " ", "kinematics_params_file:=", kinematics_params_file_config,
         ]
     )
     robot_description = {'robot_description': robot_description_content}
@@ -65,13 +69,6 @@ def generate_launch_description():
     rviz_config_file = os.path.join(get_package_share_directory(description_pkg), 'rviz', 'my_robot_view.rviz')
 
     # 4. MoveIt Controller Config
-    # NOTE: LaunchConfiguration is a substitution proxy — comparing it with == in
-    # plain Python always returns False, so the original if/else was silently broken:
-    # trajectory_controller_name was ALWAYS "scaled_joint_trajectory_controller".
-    # Fix: declare both arm controllers in the MoveIt dict. Only one will actually
-    # be active at runtime (the spawner IfCondition/UnlessCondition handles that).
-    # MoveIt connects to whichever one responds. robotiq_gripper_controller is
-    # always spawned so RViz always receives gripper joint states for visualisation.
     moveit_controllers = {
         'moveit_simple_controller_manager': {
             'controller_names': [
@@ -101,6 +98,7 @@ def generate_launch_description():
             },
         }
     }
+    
     planning_pipeline_config = {
         'default_planning_pipeline': 'ompl',
         'planning_pipelines': ['ompl'],
@@ -119,6 +117,8 @@ def generate_launch_description():
     return LaunchDescription([
         use_fake_hardware_arg,
         robot_ip_arg,
+        reverse_ip_arg,
+        kinematics_params_file_arg,
 
         Node(
             package='robot_state_publisher', 
@@ -130,7 +130,16 @@ def generate_launch_description():
         Node(
             package='controller_manager',
             executable='ros2_control_node',
-            parameters=[robot_description, {'use_sim_time': False, 'update_rate': 100}, controllers_yaml],
+            parameters=[
+                robot_description, 
+                {
+                    'use_sim_time': False, 
+                    'update_rate': 100,
+                    'robot_ip': robot_ip_config,
+                    'reverse_ip': reverse_ip_config
+                }, 
+                controllers_yaml
+            ],
             output='both',
         ),
 
@@ -150,7 +159,6 @@ def generate_launch_description():
 
         Node(package='controller_manager', executable='spawner', arguments=['joint_state_broadcaster']),
 
-        # FIX: Using the variable 'use_fake_hardware_config' which is defined above
         Node(
             package='controller_manager', 
             executable='spawner', 
@@ -166,6 +174,14 @@ def generate_launch_description():
         ),
 
         Node(package='controller_manager', executable='spawner', arguments=['robotiq_gripper_controller']),
+        
+        # New Spawner for I/O
+        Node(
+            package='controller_manager', 
+            executable='spawner', 
+            arguments=['io_and_status_controller'],
+            condition=UnlessCondition(use_fake_hardware_config)
+        ),
 
         TimerAction(period=5.0, actions=[
             Node(

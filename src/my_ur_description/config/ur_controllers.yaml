@@ -15,6 +15,9 @@ controller_manager:
     robotiq_gripper_controller:
       type: joint_trajectory_controller/JointTrajectoryController
 
+    io_and_status_controller:
+      type: ur_controllers/GPIOController
+
 scaled_joint_trajectory_controller:
   ros__parameters:
     joints:
@@ -60,3 +63,10 @@ robotiq_gripper_controller:
     state_interfaces:
       - position
       - velocity
+    state_publish_rate: 100.0
+    action_monitor_rate: 20.0
+    allow_partial_joints_goal: false
+
+io_and_status_controller:
+  ros__parameters:
+    {}
