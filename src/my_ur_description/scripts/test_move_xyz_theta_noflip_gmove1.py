@@ -568,10 +568,10 @@ def main():
 
     # transform from the table_world_frame to the robot baselink frame
     #xbase=-0.05-(-0.188)
-    xbase=-0.03-(-0.097)
+    xbase=-0.03-(0.021)
     #ybase=1.13+0.15+(0.375)
-    ybase=1.13+0.15-(0.519)
-    zbase=0.24-0.04+(0.039)
+    ybase=1.13+0.15-(0.358)
+    zbase=0.24-0.04+(0.022)
 
     bot.move_xyz_no_flip(xbase, ybase, 0.5)
     time.sleep(2)

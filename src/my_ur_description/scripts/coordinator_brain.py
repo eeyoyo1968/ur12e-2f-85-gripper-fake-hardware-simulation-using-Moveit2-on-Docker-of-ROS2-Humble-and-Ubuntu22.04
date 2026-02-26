@@ -22,7 +22,7 @@ class PickAndPlaceBrain(UR12eController):
         self.pose_buffer = collections.deque(maxlen=10) 
         self.stability_threshold = 0.02 
         self.is_busy = False
-        
+
         # 2. URScript Publisher for Wrist Gripper
         self.script_pub = self.create_publisher(String, '/ur_script_interface/script_command', 10)
         
@@ -94,38 +94,66 @@ class PickAndPlaceBrain(UR12eController):
         self.script_pub.publish(script)
         time.sleep(1.2)
 
-    def run_pick_place_sequence(self, pose):
-        self.is_busy = True
-        self.init_wrist_communication()
-        
-        # Base Transformation logic
-        #x_base = -pose.position.x
-        #y_base = 1.13 + pose.position.y
-        #z_base = pose.position.z + 0.15 
-    
-        x_base = -0.03 - pose.position.x
-        y_base = 1.13 +0.15 - pose.position.y
-        z_base = 0.24-0.04 + pose.position.z 
-    
+    #def run_pick_place_sequence(self, pose):
+    #    self.is_busy = True
+    #    self.init_wrist_communication()
+    #    
+    #    # Base Transformation logic
+    #    #x_base = -pose.position.x
+    #    #y_base = 1.13 + pose.position.y
+    #    #z_base = pose.position.z + 0.15 
+    #
+    #    x_base = -0.03 - pose.position.x
+    #    y_base = 1.13 +0.15 - pose.position.y
+    #    z_base = 0.24-0.04 + pose.position.z 
+    # 
+    #
+    #    # Cycle Execution
+    #    # Approach
+    #    result = self.move_xyz_no_flip(x_base, y_base, z_base + 0.1)
+    #    if result is None:
+    #        self.get_logger().error("Approach motion failed - result is None")
+    #        self.is_busy = False
+    #        return 
+    # 
+    #    # Gripper Open
+    #    self.get_logger().info("Requesting Gripper OPEN")
+    #    #self.gripper_wrist_move(0) # 0 is fully open
+    #
+    #    # Lower
+    #    self.move_xyz_no_flip(x_base, y_base, z_base) 
+    # 
+    #    # Gripper Close
+    #    self.get_logger().info("Requesting Gripper CLOSE")
+    #    #self.gripper_wrist_move(255) # 255 is fully closed
+    #    
+    #    #if self.monitor_grasp(): 
+    #    #    self.get_logger().info("Grasp success! Moving to bin...")
+    #        # Sorting logic would go here
+    #        
+    #    self.is_busy = False
+    #    self.pose_buffer.clear()
 
-        # Cycle Execution
-        # Approach
-        result = self.move_xyz_no_flip(x_base, y_base, z_base + 0.1)
-        if result is None:
-            self.get_logger().error("Approach motion failed - result is None")
-            self.is_busy = False
-            return 
+    def run_pick_place_sequence(self):
+        self.is_busy = True
+        p = self.target_pose.pose.position
+     
+        # Use the frame provided by the perception node
+        frame = self.target_pose.header.frame_id # 'table_world'
+        # In coordinator_brain.py inside brain_pick_and_place:
     
-        # Gripper Open
-        self.get_logger().info("Requesting Gripper OPEN")
-        #self.gripper_wrist_move(0) # 0 is fully open
+        self.get_logger().info(f"Targeting {self.target_class} in {frame}")
     
-        # Lower
-        self.move_xyz_no_flip(x_base, y_base, z_base) 
-    
-        # Gripper Close
-        self.get_logger().info("Requesting Gripper CLOSE")
-        #self.gripper_wrist_move(255) # 255 is fully closed
+        # A. Pre-Grasp (Pass the frame_id to MoveIt) 
+        self.move_xyz_no_flip(p.x, p.y, p.z + 0.5, frame_id=frame)
+        #self.gripper_move(0.0)
+     
+        # B. Grasp
+        #self.move_xyz_no_flip(p.x, p.y, p.z + 0.2, frame_id=frame)
+        # ... rest of your logic ...
+        #self.gripper_wrist_move(0)                          # Open
+        #self.move_xyz_no_flip(x_base, y_base, z_base)       # Lower
+        #self.gripper_wrist_move(255)                        # Close
         
         #if self.monitor_grasp(): 
         #    self.get_logger().info("Grasp success! Moving to bin...")
@@ -133,34 +161,6 @@ class PickAndPlaceBrain(UR12eController):
             
         self.is_busy = False
         self.pose_buffer.clear()
-
-    #def run_pick_place_sequence(self):
-    #    self.is_busy = True
-    #    p = self.target_pose.pose.position
-    # 
-    #    # Use the frame provided by the perception node
-    #    frame = self.target_pose.header.frame_id # 'table_world'
-    #    # In coordinator_brain.py inside brain_pick_and_place:
-    #
-    #    self.get_logger().info(f"Targeting {self.target_class} in {frame}")
-    #
-    #    # A. Pre-Grasp (Pass the frame_id to MoveIt) 
-    #    self.move_xyz_no_flip(p.x, p.y, p.z + 0.1, frame_id=frame)
-    #    self.gripper_move(0.0)
-    # 
-    #    # B. Grasp
-    #    self.move_xyz_no_flip(p.x, p.y, p.z, frame_id=frame)
-    #    # ... rest of your logic ...
-    #    self.gripper_wrist_move(0)                          # Open
-    #    self.move_xyz_no_flip(x_base, y_base, z_base)       # Lower
-    #    self.gripper_wrist_move(255)                        # Close
-    #    
-    #    if self.monitor_grasp(): 
-    #        self.get_logger().info("Grasp success! Moving to bin...")
-    #        # Sorting logic would go here
-    #        
-    #    self.is_busy = False
-    #    self.pose_buffer.clear()
 
 def main(args=None):
     rclpy.init(args=args)
