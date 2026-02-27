@@ -561,7 +561,7 @@ def main():
     #home = [0.0, -2.3562, 2.3562, -1.5707, -1.5707, 0.0]
     #home = [3.14159, -0.7854, -2.3562, -1.5707, 1.5707, 0.0]
     home = [4.7124, -0.5236, -2.618, -1.5707, 1.5707, 0.0]
-
+    angle = -45.0 * (math.pi / 180.0) # Convert to radians
 
     # 1. Move to a safe "Home" using joints
     bot.jmove(home)
@@ -571,12 +571,12 @@ def main():
     xbase=-0.03-(0.021)
     #ybase=1.13+0.15+(0.375)
     ybase=1.13+0.15-(0.358)
-    zbase=0.24-0.04+(0.022)
+    zbase=max(0.2275, 0.24-0.04+(0.022))
 
-    bot.move_xyz_no_flip(xbase, ybase, 0.5)
+    bot.move_xyz_theta_no_flip(xbase, ybase, 0.5,angle)
     time.sleep(2)
     #bot.move_xyz_no_flip(xbase, ybase, 0.24)
-    bot.move_xyz_no_flip(xbase, ybase, zbase)
+    bot.move_xyz_theta_no_flip(xbase, ybase, zbase, angle)
     time.sleep(2)
     bot.move_xyz_no_flip(xbase, ybase, 0.5)
     time.sleep(2)

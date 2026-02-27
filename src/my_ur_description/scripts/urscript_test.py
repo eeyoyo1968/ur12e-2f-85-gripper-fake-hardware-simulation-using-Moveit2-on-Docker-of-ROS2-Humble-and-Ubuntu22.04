@@ -71,3 +71,19 @@ result = client.read_holding_registers(0, 10)
 print(result)
 
 PYTHON
+
+
+
+python3 << 'PYTHON'
+from pymodbus.client import ModbusTcpClient
+
+robot_ip = "192.168.2.2"
+client = ModbusTcpClient(robot_ip, port=502)
+
+print("Connected:", client.connect())
+
+result = client.read_holding_registers(address=0, count=10)
+print(result)
+
+
+PYTHON
