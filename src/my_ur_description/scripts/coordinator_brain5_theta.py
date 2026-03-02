@@ -84,6 +84,8 @@ class PickAndPlaceBrain(UR12eController):
             # 4. Bin Sort (Orientation usually reset to 0 or 90 for the bin)
             bin_x = 0.2 if self.current_class == "glove" else -0.2
             self.move_xyz_theta_no_flip(bin_x, 0.4, 0.3, 0.0)
+
+            
             
             # 5. Return Home
             self.move_xyz_theta_no_flip(0.0, 0.5, 0.5, 0.0)
