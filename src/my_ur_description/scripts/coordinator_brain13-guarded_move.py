@@ -1,5 +1,5 @@
 import rclpy
-from geometry_msgs.msg import PoseStamped, Vector3Stamped
+from geometry_msgs.msg import PoseStamped, WrenchStamped  # Added WrenchStamped
 from std_msgs.msg import String
 import time
 import collections
@@ -20,13 +20,18 @@ class PickAndPlaceBrain(UR12eController):
         self.current_class = ""
         self.target_class = "unknown"
         self.latest_pose = None
-        self.latest_jaw_axis = None # NEW: Store jaw axis vector
         self.gripper_connected = False
+        
+        # NEW: Force-Sensing Variables
+        self.current_force_z = 0.0
+        #self.force_threshold = 7.0  # Newtons
+        self.force_threshold = 10.0  # Newtons
+        self.force_tare_z = 0.0
 
         self.GRIPPER_OPEN = 3
         self.GRIPPER_CLOSED = 228 
 
-        # Gripper Initialization
+        # Gripper Init (from Brain 10)
         print("Connecting to Gripper...")
         for i in range(3):
             try:
@@ -41,15 +46,14 @@ class PickAndPlaceBrain(UR12eController):
             except Exception:
                 time.sleep(0.5)
 
-        # Subscribers
         self.obj_pose_sub = self.create_subscription(
             PoseStamped, '/grasp/pose', self.pose_cb, 10, callback_group=self.group)
         self.obj_class_sub = self.create_subscription(
             String, '/grasp/class', self.class_cb, 10, callback_group=self.group)
         
-        # NEW: Subscription to jaw_axis from GraspNode4
-        self.jaw_axis_sub = self.create_subscription(
-            Vector3Stamped, '/grasp/jaw_axis', self.jaw_cb, 10, callback_group=self.group)
+        # NEW: Force sensor subscription
+        self.wrench_sub = self.create_subscription(
+            WrenchStamped, '/wrench', self.wrench_cb, 10, callback_group=self.group)
 
     def pose_cb(self, msg):
         if not self.is_busy:
@@ -60,10 +64,8 @@ class PickAndPlaceBrain(UR12eController):
             self.current_class = msg.data
             self.target_class = msg.data
 
-    def jaw_cb(self, msg):
-        """NEW: Callback to handle jaw axis vector data"""
-        if not self.is_busy:
-            self.latest_jaw_axis = msg.vector
+    def wrench_cb(self, msg):
+        self.current_force_z = msg.wrench.force.z
 
     def gripper_heartbeat(self):
         if not self.gripper_connected: return
@@ -85,89 +87,113 @@ class PickAndPlaceBrain(UR12eController):
         except:
             pass
 
-    def get_theta_from_jaw_axis(self):
-        """NEW: Calculates rotation angle based on the jaw axis vector"""
-        if self.latest_jaw_axis is None:
-            return 0.0 # Default if no jaw data yet
-        
-        # Calculate angle from X and Y vector components
-        raw_theta = math.atan2(self.latest_jaw_axis.y, self.latest_jaw_axis.x)
-        
-        # Apply -90 degree offset so gripper fingers are perpendicular to axis
-        return raw_theta - (math.pi / 2.0)
+    def get_theta_from_pose(self, pose):
+        """Keeping your preferred quaternion-to-yaw logic"""
+        q = pose.orientation
+        siny_cosp = 2 * (q.w * q.z + q.x * q.y)
+        cosy_cosp = 1 - 2 * (q.y * q.y + q.z * q.z)
+        return math.atan2(siny_cosp, cosy_cosp)
 
     def check_stability(self):
         if self.latest_pose is None or self.latest_pose.position.x == 0.0:
             return False
-        if self.latest_jaw_axis is None: # Ensure jaw data is present
-            return False
-            
         self.pose_buffer.append([self.latest_pose.position.x, self.latest_pose.position.y])
         if len(self.pose_buffer) < 10: return False
         arr = np.array(self.pose_buffer)
         spread = np.max(arr, axis=0) - np.min(arr, axis=0)
         return all(spread < 0.02)
-
+    
     def execute_move(self):
         self.is_busy = True
         p = self.latest_pose.position
+        theta = -self.get_theta_from_pose(self.latest_pose) + math.pi/2
         
-        # UPDATED: Use jaw axis for theta calculation
-        theta = -self.get_theta_from_jaw_axis()
+        # Coordinates
+        x_t, y_t = -0.04 - p.x, 1.27 - p.y
+        z_target = max(0.233, 0.20 - 0.02 + p.z) 
         
-        x_t, y_t = -0.05 - p.x, 1.30 - p.y
-        z_t = max(0.242, 0.20 - 0.02 + p.z)
+        # Start search 15mm above target to ensure we tare in the air
+        z_search_start = z_target + 0.000 
+        z_approach = z_target + 0.10
 
-        self.get_logger().info(f"PICKING {self.target_class} with Jaw Alignment...")
-        
-        # Math Constants for Binning
+                # Binning targets
         PI = math.pi
         D2R = PI / 180.0
         bin_hard = np.array([330.0, -65.72, -140.5, -63.9, 90.0, 60.0]) * D2R
-        bin_soft = np.array([270.0, -54.27, -145.26, -70.48, 90.0, 0.0]) * D2R     
-        
+        bin_soft = np.array([270.0, -54.27, -145.26, -70.48, 90.0, 0.0]) * D2R   
+
         try:
-            # 1. Approach with jaw alignment
+            # 1. Approach to Tare Zone
             self.set_gripper(self.GRIPPER_OPEN)
-            self.move_xyz_theta_no_flip(x_t, y_t, z_t + 0.10, theta)
-            self.active_wait(0.8)
-            
-            # 2. Pick
-            self.move_xyz_theta_no_flip(x_t, y_t, z_t, theta)
-            self.active_wait(0.7) 
+            self.move_xyz_theta_no_flip(x_t, y_t, z_approach, theta)
+            self.move_xyz_theta_no_flip(x_t, y_t, z_search_start, theta)
+            self.active_wait(0.3) # Let the robot settle to get a clean tare
+
+            if z_target <= 0.26:
+                self.get_logger().info("Engaging Guarded Search with Force Release...")
+                
+                # Zero the force reading in the air
+                self.force_tare_z = self.current_force_z
+                
+                contact_detected = False
+                # Search down 30mm in small 1mm steps
+                for step in range(10): 
+                    current_step_z = z_search_start - (step * 0.005)
+                    self.move_xyz_theta_no_flip(x_t, y_t, current_step_z, theta)
+                    
+                    # Detect Contact
+                    if abs(self.current_force_z - self.force_tare_z) > self.force_threshold:
+                        self.get_logger().info("TOUCH DETECTED. Releasing pressure...")
+                        
+                        # --- THE FORCE RELEASE STEP ---
+                        # Immediately lift 1.5mm to un-pin the fingers
+                        release_z = current_step_z + 0.003
+                        self.move_xyz_theta_no_flip(x_t, y_t, release_z, theta)
+                        
+                        contact_detected = True
+                        break
+                    self.gripper_heartbeat()
+
+                if not contact_detected:
+                    self.move_xyz_theta_no_flip(x_t, y_t, z_target, theta)
+            else:
+                self.move_xyz_theta_no_flip(x_t, y_t, z_target, theta)
+
+            # 2. Grasp (Now that pressure is released, fingers can move)
+            self.active_wait(0.2)
             self.set_gripper(self.GRIPPER_CLOSED)
-            self.active_wait(1.0)
+            self.active_wait(1.2) 
             
             # 3. Lift and Sort
-            self.move_xyz_theta_no_flip(x_t, y_t, z_t + 0.15, theta)
-            self.active_wait(0.5)
-            
+            self.move_xyz_theta_no_flip(x_t, y_t, z_approach, theta)
             if self.current_class == "glove":
                 self.jmove(bin_soft)
             else:
                 self.jmove(bin_hard)    
                 
-            # 4. Release and Reset
+            # 4. Reset
             self.set_gripper(self.GRIPPER_OPEN)
-            self.active_wait(0.5)
+            self.active_wait(2.0)
             self.move_xyz_theta_no_flip(0.0, 0.6, 0.5, 0.0)
-            self.active_wait(0.8)
             
         except Exception as e:
             self.get_logger().error(f"Failed: {e}")
         finally:
-            print("Cycle Finished.")
             os._exit(0)
+
+
+
+
+
+# ... (Main loop remains identical to Brain 10)
 
 def main(args=None):
     rclpy.init(args=args)
     brain = PickAndPlaceBrain()
     
     if brain.gripper_connected:
-        print("Fast Activation...")
-        brain.active_wait(2.5)
+        print("READY (Guarded Move Enabled).")
 
-    print("READY. Waiting for Jaw-Aligned Target...")
     while rclpy.ok():
         rclpy.spin_once(brain, timeout_sec=0.01)
         brain.gripper_heartbeat()

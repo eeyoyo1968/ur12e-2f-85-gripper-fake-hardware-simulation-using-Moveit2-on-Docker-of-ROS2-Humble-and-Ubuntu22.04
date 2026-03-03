@@ -4,8 +4,9 @@
 #SCRIPT_NAME="coordinator_brain7_theta_grasp_v5.py"
 #SCRIPT_NAME="coordinator_brain8_theta_grasp_active_heartbeat.py"
 #SCRIPT_NAME="coordinator_brain9_theta_grasp_active_heartbeat.py"
-SCRIPT_NAME="coordinator_brain10_theta_grasp_active_heartbeat.py"  #bin_soft and bin_hard by jmove
+#SCRIPT_NAME="coordinator_brain10_theta_grasp_active_heartbeat.py"  #bin_soft and bin_hard by jmove
 #SCRIPT_NAME="coordinator_brain11_theta_grasp_active_heartbeat.py"  #using jaw_axis to compute theta so 11 is no need
+SCRIPT_NAME="coordinator_brain13-guarded_move.py"  #using jaw_axis to compute theta so 11 is no need
 
 PORT="/tmp/ttyUR"
 
@@ -33,5 +34,5 @@ do
 
     echo "Step 3: Cycle Complete. Resetting in 3 seconds..."
     # Brief sleep to let the robot controller and serial port settle
-    sleep 3
+    #sleep 3
 done

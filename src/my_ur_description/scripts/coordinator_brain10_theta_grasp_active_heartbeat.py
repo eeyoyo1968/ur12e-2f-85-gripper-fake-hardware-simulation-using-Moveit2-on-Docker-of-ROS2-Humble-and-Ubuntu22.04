@@ -105,8 +105,11 @@ class PickAndPlaceBrain(UR12eController):
             # --- Math Constants ---
         PI = math.pi
         D2R = PI / 180.0
-        bin_hard=np.array([330.0, -65.72, -140.5, -63.9, 90.0, 60.0])*D2R
-        bin_soft=np.array([270.0, -54.27, -145.26, -70.48, 90.0, 0.0])*D2R     
+        #bin_hard=np.array([330.0, -65.72, -140.5, -63.9, 90.0, 60.0])*D2R
+        bin_soft=np.array([270.0, -54.27, -145.26, -70.48, 90.0, 0.0])*D2R  
+
+        bin_hard=np.array([350.0, -100.0, -128.0, -41.5, 90.0, 81.0])*D2R   
+        bin_hard_above=np.array([350.0, -90.0, -121.65, -56.14, 90.0, 80.5])*D2R 
         
         try:
             # 1. Approach
@@ -131,6 +134,7 @@ class PickAndPlaceBrain(UR12eController):
             if self.current_class == "glove" : # soft bin
                 self.jmove(bin_soft)
             else : # hard bin
+                self.jmove(bin_hard_above)
                 self.jmove(bin_hard)    
                 
             # 4. Release and Reset

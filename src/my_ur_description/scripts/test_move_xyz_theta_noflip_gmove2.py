@@ -561,8 +561,10 @@ def main():
     #home = [0.0, -2.3562, 2.3562, -1.5707, -1.5707, 0.0]
     #home = [3.14159, -0.7854, -2.3562, -1.5707, 1.5707, 0.0]
     home = [4.7124, -0.5236, -2.618, -1.5707, 1.5707, 0.0]
-    bin_hard=np.array([330.0, -65.72, -140.5, -63.9, 90.0, 60.0])*D2R
+    #bin_hard=np.array([330.0, -65.72, -140.5, -63.9, 90.0, 60.0])*D2R
     bin_soft=np.array([270.0, -54.27, -145.26, -70.48, 90.0, 0.0])*D2R
+    bin_hard=np.array([350.0, -100.0, -128.0, -41.5, 90.0, 81.0])*D2R 
+    bin_hard2=np.array([350.0, -90.0, -121.65, -56.14, 90.0, 80.5])*D2R 
 
     angle = -45.0 * (math.pi / 180.0) # Convert to radians
 
@@ -590,12 +592,14 @@ def main():
 
 
     #bot.move_xyz_no_flip(xbase, ybase, zbase)
-    bot.move_xyz_theta_no_flip(xbase, ybase, zbase, angle)
-    time.sleep(5)
+    #bot.move_xyz_theta_no_flip(xbase, ybase, zbase, angle)
+    bot.jmove(bin_hard2)
+    time.sleep(1)
     bot.jmove(bin_hard)
     time.sleep(5)
-    bot.jmove(bin_soft)
-    time.sleep(5)
+    #bot.jmove(bin_soft)
+    bot.jmove(bin_hard2)
+    time.sleep(1)
 
     # Instead of move_xyz, use the IK-guarded version
     bot.jmove(home) 
