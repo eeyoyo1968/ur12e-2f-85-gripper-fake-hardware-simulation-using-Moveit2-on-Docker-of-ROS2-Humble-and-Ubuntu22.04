@@ -23,6 +23,7 @@ class PickAndPlaceBrain(UR12eController):
         self.gripper_connected = False
 
         self.GRIPPER_OPEN = 3
+        self.GRIPPER_HALF = 128
         self.GRIPPER_CLOSED = 228 
 
         print("Connecting to Gripper...")
@@ -38,6 +39,8 @@ class PickAndPlaceBrain(UR12eController):
                 break
             except Exception:
                 time.sleep(0.5)
+        
+
 
         self.obj_pose_sub = self.create_subscription(
             PoseStamped, '/grasp/pose', self.pose_cb, 10, callback_group=self.group)
@@ -94,57 +97,69 @@ class PickAndPlaceBrain(UR12eController):
     def execute_move(self):
         self.is_busy = True
         p = self.latest_pose.position
-        theta = -self.get_theta_from_pose(self.latest_pose)+math.pi/2
+        theta = -self.get_theta_from_pose(self.latest_pose) + math.pi/2
         
         # Fast trajectory coordinates
         x_t, y_t = -0.03 - p.x, 1.28 - p.y
+        #z_t = max(0.232, 0.20 - 0.02 + p.z)
         z_t = max(0.232, 0.20 - 0.02 + p.z)
 
-        self.get_logger().info(f"STARTING FAST PICK: {self.target_class}")
-        
-            # --- Math Constants ---
+        # Binning targets
         PI = math.pi
         D2R = PI / 180.0
-        #bin_hard=np.array([330.0, -65.72, -140.5, -63.9, 90.0, 60.0])*D2R
-        bin_soft=np.array([270.0, -54.27, -145.26, -70.48, 90.0, 0.0])*D2R  
-
-        bin_hard=np.array([350.0, -100.0, -128.0, -41.5, 90.0, 81.0])*D2R   
-        bin_hard_above=np.array([350.0, -90.0, -121.65, -56.14, 90.0, 80.5])*D2R 
+        bin_soft = np.array([270.0, -54.27, -145.26, -70.48, 90.0, 0.0]) * D2R  
+        bin_hard = np.array([350.0, -100.0, -128.0, -41.5, 90.0, 81.0]) * D2R   
+        bin_hard_above = np.array([350.0, -90.0, -121.65, -56.14, 90.0, 80.5]) * D2R 
         
         try:
-            # 1. Approach
+            # 1. Approach to safe height
             self.set_gripper(self.GRIPPER_OPEN)
             self.move_xyz_theta_no_flip(x_t, y_t, z_t + 0.10, theta)
-            #self.active_wait(0.8) # Reduced wait
             
-            # 2. Pick
-            self.move_xyz_theta_no_flip(x_t, y_t, z_t, theta)
-            #self.active_wait(0.7) 
+            if z_t >= 0.26:
+                # --- FAST PICK ---
+                self.move_xyz_theta_no_flip(x_t, y_t, z_t, theta)
+            else:
+                # --- MOVEIT-BASED GUARDED PICK ---
+                self.get_logger().info("Using Step-Down Guarded Pick...")
+                self.set_gripper(self.GRIPPER_HALF)
+                # 1. Move to a safe 'pre-contact' height
+                z_start = z_t + 0.015
+                self.move_xyz_theta_no_flip(x_t, y_t, z_start, theta)
+                
+                # 2. Since your force sensor is 0.0, we move to the 
+                # absolute lowest safe point for small parts
+                #z_limit = z_t - 0.002 # 2mm below expected to ensure contact
+                z_limit = z_t - 0.01 # 2mm below expected to ensure contact
+                self.move_xyz_theta_no_flip(x_t, y_t, z_limit, theta)
+                
+                # 3. RETRACT (The secret for flat parts)
+                # This moves up 5mm so the gripper is not pinned to the table
+                self.get_logger().info("Retracting 5mm for jaw clearance...")
+                #self.move_xyz_theta_no_flip(x_t, y_t, z_limit + 0.005, theta)
+                self.move_xyz_theta_no_flip(x_t, y_t, z_limit + 0.010, theta)
+                self.set_gripper(self.GRIPPER_OPEN)
+                self.active_wait(1.0)
+
+            # 2. GRASP (Now 5mm above table, jaws are free to slide)
             self.set_gripper(self.GRIPPER_CLOSED)
-            self.active_wait(1.0) # Grasp time
+            self.active_wait(1.2) 
             
-            # 3. Binning
+            # 3. Lift and Reset
             self.move_xyz_theta_no_flip(x_t, y_t, z_t + 0.15, theta)
-            #self.active_wait(0.5)
+            # ... (Rest of your binning code)
             
-            #bin_x = 0.25 if self.current_class == "glove" else -0.25
-            #self.move_xyz_theta_no_flip(bin_x, 0.45, 0.35, 0.0)
-            #self.active_wait(1.5) 
-            
-            if self.current_class == "glove" : # soft bin
+            if self.current_class == "glove":
                 self.jmove(bin_soft)
-            else : # hard bin
+            else:
                 self.jmove(bin_hard_above)
                 self.jmove(bin_hard)    
                 
-            # 4. Release and Reset
+            # 5. Release and Reset
             self.set_gripper(self.GRIPPER_OPEN)
-            #self.active_wait(0.5)
             self.active_wait(2.0)
             self.move_xyz_theta_no_flip(0.0, 0.6, 0.5, 0.0)
-            #self.active_wait(0.8)
 
-            
         except Exception as e:
             self.get_logger().error(f"Failed: {e}")
         finally:

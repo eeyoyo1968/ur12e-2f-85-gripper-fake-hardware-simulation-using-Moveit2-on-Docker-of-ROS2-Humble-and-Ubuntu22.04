@@ -46,7 +46,9 @@ class UR12eController(Node):
             10)
         
         # Add a publisher for the URScript interface
-        self.script_pub = self.create_publisher(String, '/ur_script_interface/script_command', 10)
+        #self.script_pub = self.create_publisher(String, '/ur_script_interface/script_command', 10)
+        # Update this line in your __init__:
+        self.script_pub = self.create_publisher(String, '/urscript_interface/script_command', 10)
 
         self.get_logger().info("Connecting to controllers...")
         self._arm_client.wait_for_server()
@@ -61,6 +63,8 @@ class UR12eController(Node):
 
     def joint_state_callback(self, msg):
         """Updates the gripper knuckle joint position in real-time."""
+        self.last_joint_msg = msg # Store this for start_state
+
         joint_name = 'robotiq_85_left_knuckle_joint'
         if joint_name in msg.name:
             idx = msg.name.index(joint_name)
@@ -119,7 +123,14 @@ class UR12eController(Node):
         """Moves the UR12e Arm to a joint configuration"""
         goal_msg = MoveGroup.Goal()
         goal_msg.request.group_name = "ur_manipulator"
-        goal_msg.request.start_state.is_diff = True 
+        
+        # FIX: Populate the start state with your actual current positions 
+        # from the joint_state_callback
+        if hasattr(self, 'last_joint_msg'):
+            goal_msg.request.start_state.joint_state = self.last_joint_msg
+        else:
+            goal_msg.request.start_state.is_diff = True 
+        
         goal_msg.request.allowed_planning_time = 5.0
         
         joint_names = ['shoulder_pan_joint', 'shoulder_lift_joint', 'elbow_joint', 
@@ -132,6 +143,8 @@ class UR12eController(Node):
             con.joint_constraints.append(jc)
         
         goal_msg.request.goal_constraints.append(con)
+        goal_msg.request.max_velocity_scaling_factor = 0.1
+
         future = self._arm_client.send_goal_async(goal_msg)
         rclpy.spin_until_future_complete(self, future)
         handle = future.result()
@@ -139,6 +152,40 @@ class UR12eController(Node):
         res_future = handle.get_result_async()
         rclpy.spin_until_future_complete(self, res_future)
         return True
+
+    def jmove_async(self, jointvector):
+        """Starts a joint move and returns the future immediately."""
+        goal_msg = MoveGroup.Goal()
+        goal_msg.request.group_name = "ur_manipulator"
+        
+        # Populate start state to avoid the Joint 0 'jump' error
+        if hasattr(self, 'last_joint_msg'):
+            goal_msg.request.start_state.joint_state = self.last_joint_msg
+        else:
+            goal_msg.request.start_state.is_diff = True 
+
+        joint_names = ['shoulder_pan_joint', 'shoulder_lift_joint', 'elbow_joint', 
+                       'wrist_1_joint', 'wrist_2_joint', 'wrist_3_joint']
+        
+        con = Constraints()
+        for name, pos in zip(joint_names, jointvector):
+            jc = JointConstraint(joint_name=name, position=float(pos), 
+                                 tolerance_above=0.01, tolerance_below=0.01, weight=1.0)
+            con.joint_constraints.append(jc)
+        
+        goal_msg.request.goal_constraints.append(con)
+        goal_msg.request.max_velocity_scaling_factor = 0.1
+        
+        # Return the future - DO NOT spin_until_complete here
+        return self._arm_client.send_goal_async(goal_msg)
+
+    def stop_motion(self):
+        """Immediately stops all UR arm motion."""
+        msg = String()
+        msg.data = "stopl(1.5)\n"
+        self.script_pub.publish(msg)
+        self.get_logger().info("Sent stopl command to UR controller.")
+
 
 
     # *** move to a pose ***
@@ -540,6 +587,31 @@ class UR12eController(Node):
             self.get_logger().info(f"Grasp Verified: Holding object at {pos:.3f}")
             return True
     
+    def contact_search_and_retract(self, retract_dist=0.005):
+        """Native URScript: Zeroes sensors, searches for table, then retracts."""
+        # Use \n at the end and a clear def/end block
+        script = f"""
+def guarded_pick():
+  zero_ftsensor()
+  # direction: [x, y, z, rx, ry, rz] in Tool Frame
+  # In UR12e, +Z is usually 'out' from the flange
+  direction = [0, 0, 1, 0, 0, 0] 
+  tool_contact(direction)
+  stopl(3.0)
+  
+  # Retract 5mm so the gripper tips aren't dragging on the table
+  p_curr = get_actual_tcp_pose()
+  p_retract = pose_add(p_curr, p[0, 0, -{retract_dist}, 0, 0, 0])
+  movel(p_retract, a=1.2, v=0.05)
+end
+\n"""
+        msg = String()
+        msg.data = script
+        # Check your topic name! If /ur_script_interface/script_command failed, 
+        # try /urscript_interface/script_command (no underscore after ur)
+        self.script_pub.publish(msg)
+        self.get_logger().info("Hardware Guarded Move Initiated...")
+
 
 def main():
     # ... init bot ...
@@ -573,7 +645,7 @@ def main():
     ybase=1.13+0.15-(0.358)
     zbase=max(0.2275, 0.24-0.04+(0.022))
 
-    bot.move_xyz_theta_no_flip(xbase, ybase, 0.5,angle)
+    bot.move_xyz_theta_no_flip(xbase, ybase, 0.5, angle)
     time.sleep(2)
     #bot.move_xyz_no_flip(xbase, ybase, 0.24)
     bot.move_xyz_theta_no_flip(xbase, ybase, zbase, angle)
