@@ -42,6 +42,9 @@ def generate_launch_description():
         default_value=os.path.join(get_package_share_directory("ur_description"), "config", "ur12e", "default_kinematics.yaml")
     )
 
+    ur_type_arg = DeclareLaunchArgument("ur_type", default_value="ur12e")
+    ur_type_config = LaunchConfiguration("ur_type")
+
     # 2. Robot Description (XACRO) - Passing all 4 required parameters
     xacro_file = PathJoinSubstitution([get_package_share_directory(description_pkg), 'urdf', 'ur_system.xacro'])
     
@@ -53,6 +56,8 @@ def generate_launch_description():
             " ", "robot_ip:=", robot_ip_config,
             " ", "reverse_ip:=", reverse_ip_config,
             " ", "kinematics_params_file:=", kinematics_params_file_config,
+            " ", "ur_type:=", ur_type_config,
+
         ]
     )
     robot_description = {'robot_description': robot_description_content}
@@ -182,6 +187,31 @@ def generate_launch_description():
             arguments=['io_and_status_controller'],
             condition=UnlessCondition(use_fake_hardware_config)
         ),
+
+        # Force Torque Sensor Broadcaster
+        #Node(
+        #    package='controller_manager',
+        #    executable='spawner',
+        #    arguments=['force_torque_sensor_broadcaster'],
+        #    condition=UnlessCondition(use_fake_hardware_config)
+        #),
+
+        # URScript Broadcaster
+        #Node(
+        #    package='controller_manager',
+        #    executable='spawner',
+        #    arguments=['ur_script_broadcaster'],
+        #    condition=UnlessCondition(use_fake_hardware_config)
+        #),
+
+        # Tool Contact Controller
+        Node(
+             package='controller_manager',
+            executable='spawner',
+            arguments=['tool_contact_controller'],
+            condition=UnlessCondition(use_fake_hardware_config)
+        ),
+
 
         TimerAction(period=5.0, actions=[
             Node(

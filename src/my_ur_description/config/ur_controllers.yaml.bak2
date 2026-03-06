@@ -70,26 +70,3 @@ robotiq_gripper_controller:
 io_and_status_controller:
   ros__parameters:
     {}
-
-force_torque_sensor_broadcaster:
-  ros__parameters:
-    sensor_name: tcp_fts_sensor
-    state_interface_names:
-      - force.x
-      - force.y
-      - force.z
-      - torque.x
-      - torque.y
-      - torque.z
-    frame_id: tool0
-
-ur_script_broadcaster:
-  ros__parameters:
-    {}
-
-tool_contact_controller:
-  ros__parameters:
-    {}
-
-
-
